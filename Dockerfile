@@ -6,8 +6,7 @@ USER user
 ENV HOME=/home/user \
     PATH=/home/user/.local/bin:$PATH \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    DATA_DIR=/home/user/app/data
+    PYTHONDONTWRITEBYTECODE=1
 
 WORKDIR /home/user/app
 
