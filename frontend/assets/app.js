@@ -19,14 +19,11 @@ async function api(path, options = {}) {
   const config = {...options, credentials: "same-origin", headers: {...(options.headers || {})}};
   if (state.sessionToken) config.headers.Authorization = `Bearer ${state.sessionToken}`;
   
-  const provider = localStorage.getItem("ghostwriter:ai_provider") || "huggingface";
-  config.headers["X-AI-Provider"] = provider;
-  if (provider === "openrouter") {
-    const key = localStorage.getItem("ghostwriter:openrouter_key");
-    const model = localStorage.getItem("ghostwriter:openrouter_model");
-    if (key) config.headers["X-OpenRouter-Key"] = key;
-    if (model) config.headers["X-OpenRouter-Model"] = model;
-  }
+  config.headers["X-AI-Provider"] = "openrouter";
+  const key = localStorage.getItem("ghostwriter:openrouter_key");
+  const model = localStorage.getItem("ghostwriter:openrouter_model");
+  if (key) config.headers["X-OpenRouter-Key"] = key;
+  if (model) config.headers["X-OpenRouter-Model"] = model;
 
   if (config.body && !(config.body instanceof FormData)) {
     config.headers["Content-Type"] = "application/json";
@@ -452,9 +449,11 @@ async function generateWriting() {
   $("#draft-content").value = "";
   state.originalAiText = "";
   try {
+    const activeModeNode = document.querySelector("#write-mode .chip.active");
+    const mode = activeModeNode ? activeModeNode.dataset.mode : "write";
     const response = await api("/api/ai/generate", {
       method: "POST",
-      body: {workspace_id: state.workspace, prompt, mode: $("#write-mode").value},
+      body: {workspace_id: state.workspace, prompt, mode},
     });
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -929,30 +928,97 @@ function bindEvents() {
   if ($("#sidebar-backdrop")) $("#sidebar-backdrop").onclick = toggleSidebar;
   if ($("#theme-button")) $("#theme-button").onclick = cycleTheme;
   
-  // AI Provider settings
-  const providerSelect = $("#ai-provider-select");
-  const orConfig = $("#openrouter-config");
-  if (providerSelect) {
-    providerSelect.value = localStorage.getItem("ghostwriter:ai_provider") || "huggingface";
-    if (providerSelect.value === "openrouter") orConfig.classList.remove("hidden");
-    
-    providerSelect.onchange = (e) => {
-      if (e.target.value === "openrouter") orConfig.classList.remove("hidden");
-      else orConfig.classList.add("hidden");
+  $$("#write-mode .chip").forEach(chip => {
+    chip.onclick = () => {
+      $$("#write-mode .chip").forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
     };
+  });
+
+  // OpenRouter Settings Logic
+  const orKeyInput = $("#openrouter-key");
+  const orModelDisplay = $("#active-model-display");
+  const loadModelsBtn = $("#load-models-btn");
+  const modelsBrowser = $("#models-browser");
+  const modelsList = $("#models-list");
+  const modelSearch = $("#model-search");
+  
+  let allModels = [];
+  let currentTab = "all"; // all, free, paid
+
+  orKeyInput.value = localStorage.getItem("ghostwriter:openrouter_key") || "";
+  orModelDisplay.textContent = localStorage.getItem("ghostwriter:openrouter_model") || "None";
+  
+  orKeyInput.addEventListener("input", () => {
+    localStorage.setItem("ghostwriter:openrouter_key", orKeyInput.value.trim());
+  });
+
+  function renderModels() {
+    modelsList.innerHTML = "";
+    const query = modelSearch.value.toLowerCase();
     
-    $("#openrouter-key").value = localStorage.getItem("ghostwriter:openrouter_key") || "";
-    $("#openrouter-model").value = localStorage.getItem("ghostwriter:openrouter_model") || "anthropic/claude-3-haiku";
+    let filtered = allModels.filter(m => m.id.toLowerCase().includes(query) || m.name.toLowerCase().includes(query));
     
-    $("#save-provider-btn").onclick = () => {
-      localStorage.setItem("ghostwriter:ai_provider", providerSelect.value);
-      if (providerSelect.value === "openrouter") {
-        localStorage.setItem("ghostwriter:openrouter_key", $("#openrouter-key").value.trim());
-        localStorage.setItem("ghostwriter:openrouter_model", $("#openrouter-model").value.trim());
-      }
-      toast("AI Provider configuration saved", "success");
-    };
+    if (currentTab === "free") {
+      filtered = filtered.filter(m => parseFloat(m.pricing?.prompt || -1) === 0 && parseFloat(m.pricing?.completion || -1) === 0);
+    } else if (currentTab === "paid") {
+      filtered = filtered.filter(m => parseFloat(m.pricing?.prompt || 0) > 0 || parseFloat(m.pricing?.completion || 0) > 0);
+    }
+
+    filtered.forEach(model => {
+      const isFree = parseFloat(model.pricing?.prompt || -1) === 0 && parseFloat(model.pricing?.completion || -1) === 0;
+      const el = document.createElement("div");
+      el.className = "model-result";
+      el.style.cursor = "pointer";
+      el.innerHTML = `
+        <div style="display: flex; justify-content: space-between;">
+          <strong>${model.name}</strong>
+          <span style="font-size: 11px; background: var(--bg-muted); padding: 2px 6px; border-radius: 4px;">${isFree ? "Free" : "Paid"}</span>
+        </div>
+        <small>${model.id}</small>
+      `;
+      el.onclick = () => {
+        localStorage.setItem("ghostwriter:openrouter_model", model.id);
+        orModelDisplay.textContent = model.id;
+        toast(`Model updated: ${model.id}`, "success");
+      };
+      modelsList.appendChild(el);
+    });
   }
+
+  modelSearch.addEventListener("input", renderModels);
+
+  $$("#models-browser .chip[data-model-tab]").forEach(tab => {
+    tab.onclick = () => {
+      $$("#models-browser .chip[data-model-tab]").forEach(c => c.classList.remove("active"));
+      tab.classList.add("active");
+      currentTab = tab.dataset.modelTab;
+      renderModels();
+    };
+  });
+
+  loadModelsBtn.onclick = async () => {
+    const key = orKeyInput.value.trim();
+    if (!key) return toast("Enter OpenRouter API Key first", "error");
+    
+    loadModelsBtn.disabled = true;
+    loadModelsBtn.textContent = "Loading...";
+    try {
+      const res = await fetch("https://openrouter.ai/api/v1/models", {
+        headers: { "Authorization": `Bearer ${key}` }
+      });
+      const data = await res.json();
+      allModels = data.data || [];
+      modelsBrowser.classList.remove("hidden");
+      renderModels();
+      toast(`Loaded ${allModels.length} models`, "success");
+    } catch (err) {
+      toast("Failed to load models", "error");
+    } finally {
+      loadModelsBtn.disabled = false;
+      loadModelsBtn.textContent = "Load";
+    }
+  };
 
   $("#workspace-button").onclick = showWorkspaceSheet;
   $("#sheet-close").onclick = closeSheet;

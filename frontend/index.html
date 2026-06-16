@@ -77,11 +77,11 @@
         <div class="prompt-card">
           <textarea id="write-prompt" rows="3" placeholder="What do you want to write?"></textarea>
           <div class="prompt-actions">
-            <select id="write-mode" aria-label="Writing mode">
-              <option value="write">Write</option>
-              <option value="rewrite">Rewrite</option>
-              <option value="paraphrase">Paraphrase</option>
-            </select>
+            <div id="write-mode" class="tab-row" style="margin: 0; padding: 0;">
+              <button class="chip active" data-mode="write" type="button">Write</button>
+              <button class="chip" data-mode="rewrite" type="button">Rewrite</button>
+              <button class="chip" data-mode="paraphrase" type="button">Paraphrase</button>
+            </div>
             <button id="generate-button" class="button primary compact" type="button">Generate</button>
           </div>
         </div>
@@ -151,20 +151,27 @@
           
           <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 16px; cursor: default;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span><strong>AI Provider</strong><small>Choose your AI backend</small></span>
+              <span><strong>OpenRouter Models</strong><small>Configure your AI provider</small></span>
             </div>
-            <select id="ai-provider-select" style="width: 100%; margin-bottom: 8px;">
-              <option value="huggingface">Hugging Face Space (Default)</option>
-              <option value="openrouter">OpenRouter API</option>
-            </select>
-            <div id="openrouter-config" class="hidden" style="display: flex; flex-direction: column; gap: 12px;">
-              <input id="openrouter-key" type="password" placeholder="OpenRouter API Key (sk-or-v1-...)" autocomplete="off">
-              <input id="openrouter-model" type="text" placeholder="Model (e.g., anthropic/claude-3-haiku)" value="anthropic/claude-3-haiku">
-              <button id="save-provider-btn" class="button compact primary" style="align-self: flex-start;">Save Configuration</button>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <div style="display: flex; gap: 8px;">
+                <input id="openrouter-key" type="password" placeholder="OpenRouter API Key (sk-or-...)" autocomplete="off" style="flex: 1; min-width: 0;">
+                <button id="load-models-btn" class="button primary compact" type="button">Load</button>
+              </div>
+              <div id="models-browser" class="hidden" style="margin-top: 4px;">
+                <div style="margin-bottom: 16px; font-size: 13px;">
+                  Active Model: <strong id="active-model-display">None</strong>
+                </div>
+                <div class="tab-row" style="margin: 0 0 12px; padding: 0;">
+                  <button class="chip active" data-model-tab="all" type="button">All</button>
+                  <button class="chip" data-model-tab="free" type="button">Free</button>
+                  <button class="chip" data-model-tab="paid" type="button">Paid</button>
+                </div>
+                <input type="text" id="model-search" placeholder="Search models..." style="width: 100%; margin-bottom: 12px;">
+                <div id="models-list" style="display: grid; gap: 8px; max-height: 240px; overflow-y: auto;"></div>
+              </div>
             </div>
           </div>
-
-          <button id="model-button" class="setting-row" type="button"><span><strong>AI Model</strong><small id="model-detail">Loading...</small></span><b>›</b></button>
           <button id="manual-sync" class="setting-row" type="button"><span><strong>GitHub Sync</strong><small id="sync-detail">Not configured</small></span><b>↻</b></button>
           <button id="import-button" class="setting-row" type="button"><span><strong>Import Offline Data</strong><small>Restore JSON data from device</small></span><b>↑</b></button>
           <a class="setting-row" href="/api/export" id="export-button"><span><strong>Export Offline Data</strong><small>Download all JSON data to device</small></span><b>↓</b></a>
