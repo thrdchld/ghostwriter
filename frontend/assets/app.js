@@ -190,13 +190,17 @@ async function initialize() {
   $("#app").classList.remove("hidden");
   
   applyTheme();
-  const sidebarState = localStorage.getItem("ghostwriter:sidebar") || "expanded";
+  let sidebarState = localStorage.getItem("ghostwriter:sidebar") || "expanded";
+  if (window.innerWidth <= 780) sidebarState = "minimized";
+  
   if (sidebarState === "minimized") {
     $("#sidebar").classList.add("minimized");
     $("#sidebar").classList.remove("expanded");
     $("#app").classList.add("sidebar-minimized");
   } else {
     $("#app").classList.remove("sidebar-minimized");
+    $("#sidebar").classList.remove("minimized");
+    $("#sidebar").classList.add("expanded");
   }
 
   const lastView = localStorage.getItem("ghostwriter:activeView") || "chat";
@@ -909,8 +913,10 @@ function bindEvents() {
     }
   });
 
-  $$(".nav-item").forEach(button => button.onclick = () => showView(button.dataset.view));
+  $$(".nav-item").forEach(button => button.onclick = () => { showView(button.dataset.view); if (window.innerWidth <= 780) toggleSidebar(); });
   if ($("#sidebar-toggle")) $("#sidebar-toggle").onclick = toggleSidebar;
+  if ($("#mobile-sidebar-toggle")) $("#mobile-sidebar-toggle").onclick = toggleSidebar;
+  if ($("#sidebar-backdrop")) $("#sidebar-backdrop").onclick = toggleSidebar;
   if ($("#theme-button")) $("#theme-button").onclick = cycleTheme;
   $("#workspace-button").onclick = showWorkspaceSheet;
   $("#sheet-close").onclick = closeSheet;
