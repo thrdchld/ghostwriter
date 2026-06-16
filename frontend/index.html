@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="id">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#171412">
-  <meta name="description" content="Asisten menulis personal yang mempelajari gaya dan pola berpikir Anda.">
+  <meta name="description" content="A personal writing assistant that learns your style and thinking patterns.">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/style.css?v=2">
@@ -154,21 +154,24 @@
           
           <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 16px; cursor: default;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span><strong>OpenRouter Models</strong><small>Configure your AI provider</small></span>
+              <span><strong>AI Provider</strong><small>Select provider and load models</small></span>
             </div>
             <div style="display: flex; flex-direction: column; gap: 12px;">
-              <div style="display: flex; gap: 8px;">
-                <input id="openrouter-key" type="password" placeholder="OpenRouter API Key (sk-or-...)" autocomplete="off" style="flex: 1; min-width: 0;">
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <select id="ai-provider-select" style="flex: 0 0 auto; min-width: 130px;">
+                  <option value="openrouter">OpenRouter</option>
+                  <option value="google">Google Gemini</option>
+                  <option value="groq">Groq</option>
+                  <option value="deepseek">DeepSeek</option>
+                  <option value="mistral">Mistral</option>
+                  <option value="kilo">Kilo</option>
+                </select>
+                <input id="ai-api-key" type="password" placeholder="API Key" autocomplete="off" style="flex: 1; min-width: 0;">
                 <button id="load-models-btn" class="button primary compact" type="button">Load</button>
               </div>
               <div id="models-browser" class="hidden" style="margin-top: 4px;">
-                <div style="margin-bottom: 16px; font-size: 13px;">
+                <div style="margin-bottom: 12px; font-size: 13px;">
                   Active Model: <strong id="active-model-display">None</strong>
-                </div>
-                <div class="tab-row" style="margin: 0 0 12px; padding: 0;">
-                  <button class="chip active" data-model-tab="all" type="button">All</button>
-                  <button class="chip" data-model-tab="free" type="button">Free</button>
-                  <button class="chip" data-model-tab="paid" type="button">Paid</button>
                 </div>
                 <input type="text" id="model-search" placeholder="Search models..." style="width: 100%; margin-bottom: 12px;">
                 <div id="models-list" style="display: grid; gap: 8px; max-height: 240px; overflow-y: auto;"></div>

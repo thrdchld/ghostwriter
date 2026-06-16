@@ -19,9 +19,10 @@ async function api(path, options = {}) {
   const config = {...options, credentials: "same-origin", headers: {...(options.headers || {})}};
   if (state.sessionToken) config.headers.Authorization = `Bearer ${state.sessionToken}`;
   
-  config.headers["X-AI-Provider"] = "openrouter";
-  const key = localStorage.getItem("ghostwriter:openrouter_key");
-  const model = localStorage.getItem("ghostwriter:openrouter_model");
+  const provider = localStorage.getItem("ghostwriter:ai_provider") || "openrouter";
+  const key = localStorage.getItem(`ghostwriter:key_${provider}`) || localStorage.getItem("ghostwriter:openrouter_key") || "";
+  const model = localStorage.getItem("ghostwriter:openrouter_model") || "";
+  config.headers["X-AI-Provider"] = provider;
   if (key) config.headers["X-OpenRouter-Key"] = key;
   if (model) config.headers["X-OpenRouter-Model"] = model;
 
@@ -57,21 +58,23 @@ function toast(message, type = "info") {
 
 
 function updateModelIndicator() {
-  const key = localStorage.getItem("ghostwriter:openrouter_key");
-  const model = localStorage.getItem("ghostwriter:openrouter_model");
+  const provider = localStorage.getItem("ghostwriter:ai_provider") || "openrouter";
+  const key = localStorage.getItem(`ghostwriter:key_${provider}`) || localStorage.getItem("ghostwriter:openrouter_key") || "";
+  const model = localStorage.getItem("ghostwriter:openrouter_model") || "";
   const btn = $("#model-status");
   if (!btn) return;
   const icon = btn.querySelector("i");
   const label = btn.querySelector("span");
+  const PROVIDER_LABELS = { openrouter: "OR", google: "Gemini", groq: "Groq", deepseek: "DS", mistral: "Mistral", kilo: "Kilo" };
   if (key && model) {
     if (icon) { icon.style.background = "#22c55e"; icon.style.boxShadow = "0 0 6px #22c55e88"; }
     const shortModel = model.split("/").pop();
-    if (label) label.textContent = shortModel.length > 18 ? shortModel.slice(0, 16) + "…" : shortModel;
-    btn.title = model;
+    if (label) label.textContent = shortModel.length > 16 ? shortModel.slice(0, 14) + "…" : shortModel;
+    btn.title = `${provider}: ${model}`;
   } else {
     if (icon) { icon.style.background = ""; icon.style.boxShadow = ""; }
-    if (label) label.textContent = "AI";
-    btn.title = "Click to configure AI";
+    if (label) label.textContent = PROVIDER_LABELS[provider] || "AI";
+    btn.title = "Click to configure AI in Settings";
   }
 }
 
@@ -359,7 +362,10 @@ async function sendChat(event) {
       if (done) break;
       fullResponse += decoder.decode(value, {stream: true});
       assistant.querySelector(".msg-content").innerHTML = renderMarkdown(fullResponse);
-      assistant.scrollIntoView({block: "end"});
+      // Smooth auto-scroll: only scroll if user is near the bottom
+      const msgs = $("#chat-messages");
+      const nearBottom = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 120;
+      if (nearBottom) msgs.scrollTo({ top: msgs.scrollHeight, behavior: "smooth" });
     }
   } catch (error) {
     if (error.message.includes("Semua model inference gagal")) {
@@ -819,7 +825,7 @@ async function manualSync() {
 
 
 function bindEvents() {
-  if ($("#model-status")) $("#model-status").onclick = () => { const m = localStorage.getItem("ghostwriter:openrouter_model"); const k = localStorage.getItem("ghostwriter:openrouter_key"); toast(m && k ? `Active: ${m}` : "No AI model configured. Go to Settings → AI.", m && k ? "success" : "error"); };
+  if ($("#model-status")) $("#model-status").onclick = () => { const provider = localStorage.getItem("ghostwriter:ai_provider") || "openrouter"; const m = localStorage.getItem("ghostwriter:openrouter_model"); const k = localStorage.getItem(`ghostwriter:key_${provider}`) || localStorage.getItem("ghostwriter:openrouter_key"); toast(m && k ? `${provider.toUpperCase()} · ${m}` : "No AI configured — go to Settings → AI Provider", m && k ? "success" : "error"); };
   if ($("#new-chat-button")) $("#new-chat-button").onclick = () => { resetChat(); closeSheet(); };
   document.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && e.shiftKey) {
@@ -850,92 +856,127 @@ function bindEvents() {
     };
   });
 
-  // OpenRouter Settings Logic
-  const orKeyInput = $("#openrouter-key");
-  const orModelDisplay = $("#active-model-display");
-  const loadModelsBtn = $("#load-models-btn");
-  const modelsBrowser = $("#models-browser");
-  const modelsList = $("#models-list");
-  const modelSearch = $("#model-search");
-  
-  let allModels = [];
-  let currentTab = "all"; // all, free, paid
+  // ── Multi-Provider AI Settings ───────────────────────────────────────────
+  const PROVIDER_MODEL_URLS = {
+    openrouter: async (key) => {
+      const res = await fetch("https://openrouter.ai/api/v1/models", { headers: { Authorization: `Bearer ${key}` } });
+      const data = await res.json();
+      return (data.data || []).map(m => ({ id: m.id, name: m.name || m.id }));
+    },
+    google: async (key) => {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`);
+      const data = await res.json();
+      return (data.models || [])
+        .filter(m => m.supportedGenerationMethods?.includes("generateContent"))
+        .map(m => ({ id: m.name.replace("models/", ""), name: m.displayName || m.name }));
+    },
+    groq: async (key) => {
+      const res = await fetch("https://api.groq.com/openai/v1/models", { headers: { Authorization: `Bearer ${key}` } });
+      const data = await res.json();
+      return (data.data || []).map(m => ({ id: m.id, name: m.id }));
+    },
+    deepseek: async (key) => {
+      const res = await fetch("https://api.deepseek.com/v1/models", { headers: { Authorization: `Bearer ${key}` } });
+      const data = await res.json();
+      return (data.data || []).map(m => ({ id: m.id, name: m.id }));
+    },
+    mistral: async (key) => {
+      const res = await fetch("https://api.mistral.ai/v1/models", { headers: { Authorization: `Bearer ${key}` } });
+      const data = await res.json();
+      return (data.data || []).map(m => ({ id: m.id, name: m.id }));
+    },
+    kilo: async (key) => {
+      const res = await fetch("https://api.kilo.ai/v1/models", { headers: { Authorization: `Bearer ${key}` } });
+      const data = await res.json();
+      return (data.data || []).map(m => ({ id: m.id, name: m.id }));
+    },
+  };
 
-  orKeyInput.value = localStorage.getItem("ghostwriter:openrouter_key") || "";
-  orModelDisplay.textContent = localStorage.getItem("ghostwriter:openrouter_model") || "None";
-  
-  orKeyInput.addEventListener("input", () => {
-    localStorage.setItem("ghostwriter:openrouter_key", orKeyInput.value.trim());
+  const providerSelect   = $("#ai-provider-select");
+  const apiKeyInput      = $("#ai-api-key");
+  const orModelDisplay   = $("#active-model-display");
+  const loadModelsBtn    = $("#load-models-btn");
+  const modelsBrowser    = $("#models-browser");
+  const modelsList       = $("#models-list");
+  const modelSearch      = $("#model-search");
+
+  let allModels = [];
+
+  // Restore saved state
+  const savedProvider = localStorage.getItem("ghostwriter:ai_provider") || "openrouter";
+  const savedKey      = localStorage.getItem(`ghostwriter:key_${savedProvider}`) || "";
+  const savedModel    = localStorage.getItem("ghostwriter:openrouter_model") || "";
+  if (providerSelect) providerSelect.value = savedProvider;
+  if (apiKeyInput)    apiKeyInput.value    = savedKey;
+  if (orModelDisplay) orModelDisplay.textContent = savedModel || "None";
+
+  providerSelect?.addEventListener("change", () => {
+    const p = providerSelect.value;
+    localStorage.setItem("ghostwriter:ai_provider", p);
+    apiKeyInput.value = localStorage.getItem(`ghostwriter:key_${p}`) || "";
+    modelsBrowser?.classList.add("hidden");
+    allModels = [];
+    updateModelIndicator();
+  });
+
+  apiKeyInput?.addEventListener("input", () => {
+    const p = providerSelect.value;
+    localStorage.setItem(`ghostwriter:key_${p}`, apiKeyInput.value.trim());
+    // legacy compat for openrouter
+    if (p === "openrouter") localStorage.setItem("ghostwriter:openrouter_key", apiKeyInput.value.trim());
     updateModelIndicator();
   });
 
   function renderModels() {
+    if (!modelsList) return;
     modelsList.innerHTML = "";
     const query = modelSearch.value.toLowerCase();
-    
-    let filtered = allModels.filter(m => m.id.toLowerCase().includes(query) || m.name.toLowerCase().includes(query));
-    
-    if (currentTab === "free") {
-      filtered = filtered.filter(m => m.pricing && parseFloat(m.pricing.prompt) === 0 && parseFloat(m.pricing.completion) === 0);
-    } else if (currentTab === "paid") {
-      filtered = filtered.filter(m => m.pricing && (parseFloat(m.pricing.prompt) > 0 || parseFloat(m.pricing.completion) > 0));
+    const filtered = allModels.filter(m =>
+      m.id.toLowerCase().includes(query) || m.name.toLowerCase().includes(query)
+    );
+    if (!filtered.length) {
+      modelsList.innerHTML = `<p style="font-size:13px;opacity:.6;padding:8px 0;">No models match.</p>`;
+      return;
     }
-
     filtered.forEach(model => {
-      const isFree = model.pricing && parseFloat(model.pricing.prompt) === 0 && parseFloat(model.pricing.completion) === 0;
       const el = document.createElement("div");
       el.className = "model-result";
       el.style.cursor = "pointer";
-      el.innerHTML = `
-        <div style="display: flex; justify-content: space-between;">
-          <strong>${model.name}</strong>
-          <span style="font-size: 11px; background: var(--bg-muted); padding: 2px 6px; border-radius: 4px;">${isFree ? "Free" : "Paid"}</span>
-        </div>
-        <small>${model.id}</small>
-      `;
+      el.innerHTML = `<strong>${model.name}</strong><small>${model.id}</small>`;
       el.onclick = () => {
         localStorage.setItem("ghostwriter:openrouter_model", model.id);
         orModelDisplay.textContent = model.id;
         updateModelIndicator();
-        toast(`Model updated: ${model.id}`, "success");
+        toast(`Model selected: ${model.id}`, "success");
       };
       modelsList.appendChild(el);
     });
   }
 
-  modelSearch.addEventListener("input", renderModels);
-
-  $$("#models-browser .chip[data-model-tab]").forEach(tab => {
-    tab.onclick = () => {
-      $$("#models-browser .chip[data-model-tab]").forEach(c => c.classList.remove("active"));
-      tab.classList.add("active");
-      currentTab = tab.dataset.modelTab;
-      renderModels();
-    };
-  });
+  modelSearch?.addEventListener("input", renderModels);
 
   loadModelsBtn.onclick = async () => {
-    const key = orKeyInput.value.trim();
-    if (!key) return toast("Enter OpenRouter API Key first", "error");
-    
+    const provider = providerSelect.value;
+    const key = apiKeyInput.value.trim();
+    if (!key) return toast("Enter your API Key first", "error");
+
     loadModelsBtn.disabled = true;
     loadModelsBtn.textContent = "Loading...";
     try {
-      const res = await fetch("https://openrouter.ai/api/v1/models", {
-        headers: { "Authorization": `Bearer ${key}` }
-      });
-      const data = await res.json();
-      allModels = data.data || [];
-      modelsBrowser.classList.remove("hidden");
+      const fetcher = PROVIDER_MODEL_URLS[provider];
+      if (!fetcher) throw new Error("Provider not supported");
+      allModels = await fetcher(key);
+      modelsBrowser?.classList.remove("hidden");
       renderModels();
       toast(`Loaded ${allModels.length} models`, "success");
     } catch (err) {
-      toast("Failed to load models", "error");
+      toast(`Failed to load models: ${err.message}`, "error");
     } finally {
       loadModelsBtn.disabled = false;
       loadModelsBtn.textContent = "Load";
     }
   };
+
 
   $("#workspace-button").onclick = showWorkspaceSheet;
   $("#sheet-close").onclick = closeSheet;

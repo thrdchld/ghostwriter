@@ -179,8 +179,12 @@ def _bearer_token(authorization: str | None) -> str | None:
     scheme, _, token = authorization.partition(" ")
     return token if scheme.casefold() == "bearer" and token else None
 
-def get_or_auth(request: Request) -> tuple[str, str]:
-    return request.headers.get("X-OpenRouter-Key", ""), request.headers.get("X-OpenRouter-Model", "")
+def get_or_auth(request: Request) -> tuple[str, str, str]:
+    return (
+        request.headers.get("X-OpenRouter-Key", ""),
+        request.headers.get("X-OpenRouter-Model", ""),
+        request.headers.get("X-AI-Provider", "openrouter"),
+    )
 
 
 def require_auth(
@@ -392,10 +396,10 @@ def permanently_delete_chat(req: ChatIdRequest) -> dict[str, str]:
     return {"status": "success"}
 
 
-async def _analyze_chat_background(workspace: str, chat_id: str, api_key: str, model: str) -> None:
+async def _analyze_chat_background(workspace: str, chat_id: str, api_key: str, model: str, provider: str = "openrouter") -> None:
     try:
         chat = store.get_entity(workspace, "chats", chat_id)
-        analysis = await ai_service.analyze_chat(api_key, model, chat.get("messages", []), chat.get("summary", ""))
+        analysis = await ai_service.analyze_chat(api_key, model, chat.get("messages", []), chat.get("summary", ""), provider=provider)
         chat["summary"] = analysis["summary"]
         chat["updated_at"] = now_iso()
         store.save_entity(workspace, "chats", chat)
@@ -460,7 +464,7 @@ async def _analyze_chat_background(workspace: str, chat_id: str, api_key: str, m
         return
 
 
-async def _chat_stream(workspace: str, chat: dict[str, Any], user_message: str, api_key: str, model: str):
+async def _chat_stream(workspace: str, chat: dict[str, Any], user_message: str, api_key: str, model: str, provider: str = "openrouter"):
     chat["messages"].append({"role": "user", "content": user_message, "timestamp": now_iso()})
     app_context, accessed_workspaces = build_chat_context(workspace, user_message)
     chat["accessed_workspaces"] = accessed_workspaces
@@ -476,7 +480,7 @@ async def _chat_stream(workspace: str, chat: dict[str, Any], user_message: str, 
     )
     chunks: list[str] = []
     try:
-        async for text in ai_service.stream(api_key, model, messages):
+        async for text in ai_service.stream(api_key, model, messages, provider=provider):
             chunks.append(text)
             yield text
     except AIUnavailable as exc:
@@ -490,11 +494,11 @@ async def _chat_stream(workspace: str, chat: dict[str, Any], user_message: str, 
             chat["title"] = user_message[:60]
         store.save_entity(workspace, "chats", chat)
         if answer:
-            asyncio.create_task(_analyze_chat_background(workspace, chat["id"], api_key, model))
+            asyncio.create_task(_analyze_chat_background(workspace, chat["id"], api_key, model, provider))
 
 
 @app.post("/api/chat/send", dependencies=[Depends(require_auth)])
-def send_chat(req: ChatRequest, auth: tuple[str, str] = Depends(get_or_auth)) -> StreamingResponse:
+def send_chat(req: ChatRequest, auth: tuple[str, str, str] = Depends(get_or_auth)) -> StreamingResponse:
     workspace = workspace_id(req.workspace_id)
     if req.chat_id:
         try:
@@ -518,7 +522,7 @@ def send_chat(req: ChatRequest, auth: tuple[str, str] = Depends(get_or_auth)) ->
             "accessed_workspaces": [],
         }
     return StreamingResponse(
-        _chat_stream(workspace, chat, req.message, auth[0], auth[1]),
+        _chat_stream(workspace, chat, req.message, auth[0], auth[1], auth[2]),
         media_type="text/plain; charset=utf-8",
         headers={"X-Chat-Id": chat["id"], "Cache-Control": "no-cache"},
     )
@@ -584,33 +588,33 @@ def delete_draft(req: DraftIdRequest) -> dict[str, str]:
     return {"status": "success"}
 
 
-async def _generate_stream(workspace: str, prompt: str, mode: str, api_key: str, model: str):
+async def _generate_stream(workspace: str, prompt: str, mode: str, api_key: str, model: str, provider: str = "openrouter"):
     messages = [
         {"role": "system", "content": _brain_system_prompt(workspace, mode)},
         {"role": "user", "content": prompt},
     ]
     try:
-        async for text in ai_service.stream(api_key, model, messages):
+        async for text in ai_service.stream(api_key, model, messages, provider=provider):
             yield text
     except AIUnavailable as exc:
         yield f"[Error: {exc}]"
 
 
 @app.post("/api/ai/generate", dependencies=[Depends(require_auth)])
-def generate(req: GenerateRequest, auth: tuple[str, str] = Depends(get_or_auth)) -> StreamingResponse:
+def generate(req: GenerateRequest, auth: tuple[str, str, str] = Depends(get_or_auth)) -> StreamingResponse:
     workspace = workspace_id(req.workspace_id)
     return StreamingResponse(
-        _generate_stream(workspace, req.prompt, req.mode, auth[0], auth[1]),
+        _generate_stream(workspace, req.prompt, req.mode, auth[0], auth[1], auth[2]),
         media_type="text/plain; charset=utf-8",
         headers={"Cache-Control": "no-cache"},
     )
 
 
 @app.post("/api/brain/learn/revision", dependencies=[Depends(require_auth)])
-async def learn_revision(req: RevisionRequest, auth: tuple[str, str] = Depends(get_or_auth)) -> dict[str, Any]:
+async def learn_revision(req: RevisionRequest, auth: tuple[str, str, str] = Depends(get_or_auth)) -> dict[str, Any]:
     workspace = workspace_id(req.workspace_id)
     try:
-        analysis = await ai_service.learn_revision(auth[0], auth[1], req.ai_output, req.user_revision)
+        analysis = await ai_service.learn_revision(auth[0], auth[1], req.ai_output, req.user_revision, provider=auth[2])
     except AIUnavailable as exc:
         raise error(str(exc), 503) from exc
     timestamp = now_iso()
@@ -638,9 +642,9 @@ async def learn_revision(req: RevisionRequest, auth: tuple[str, str] = Depends(g
 
 
 @app.post("/api/brain/compare-revision", dependencies=[Depends(require_auth)])
-async def compare_revision(req: RevisionRequest, auth: tuple[str, str] = Depends(get_or_auth)) -> dict[str, Any]:
+async def compare_revision(req: RevisionRequest, auth: tuple[str, str, str] = Depends(get_or_auth)) -> dict[str, Any]:
     try:
-        analysis = await ai_service.learn_revision(auth[0], auth[1], req.ai_output, req.user_revision)
+        analysis = await ai_service.learn_revision(auth[0], auth[1], req.ai_output, req.user_revision, provider=auth[2])
     except AIUnavailable as exc:
         raise error(str(exc), 503) from exc
     return {"status": "analyzed", "analysis": analysis}
@@ -662,7 +666,7 @@ async def commit_revision(req: CommitRevisionRequest) -> dict[str, Any]:
 
 
 @app.post("/api/brain/learn/raw-writing", dependencies=[Depends(require_auth)])
-async def learn_raw(req: RawWritingRequest, auth: tuple[str, str] = Depends(get_or_auth)) -> dict[str, Any]:
+async def learn_raw(req: RawWritingRequest, auth: tuple[str, str, str] = Depends(get_or_auth)) -> dict[str, Any]:
     workspace = workspace_id(req.workspace_id)
     prompt = (
         "Analyze the following writing style. Reply with one concrete, concise style rule "
@@ -673,6 +677,7 @@ async def learn_raw(req: RawWritingRequest, auth: tuple[str, str] = Depends(get_
             await ai_service.complete(
                 auth[0], auth[1],
                 [{"role": "system", "content": prompt}, {"role": "user", "content": req.content}],
+                provider=auth[2],
                 max_tokens=160,
                 temperature=0.2,
             )
