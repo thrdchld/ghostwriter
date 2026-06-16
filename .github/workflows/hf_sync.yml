@@ -1,0 +1,26 @@
+name: Sync to Hugging Face Space
+
+on:
+  push:
+    branches: [ main ] # Trigger jalan setiap kamu push ke branch 'main'
+  workflow_dispatch: # Memungkinkan kamu untuk jalankan sync manual via web GitHub
+
+jobs:
+  sync-to-hub:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true # Memastikan file besar (jika ada) ikut terangkut
+
+      - name: Push to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # Setup remote Hugging Face menggunakan token rahasia
+          git remote add hf https://thrdchld:$HF_TOKEN@huggingface.co/spaces/thrdchld/ghostwriter
+          
+          # Push paksa branch main lokal ke branch main Hugging Face
+          git push --force hf main
