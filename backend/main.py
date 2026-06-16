@@ -113,6 +113,11 @@ class RevisionRequest(BaseModel):
     user_revision: str = Field(min_length=1)
 
 
+class CommitRevisionRequest(BaseModel):
+    workspace_id: str
+    analysis: dict[str, list[str]]
+
+
 class RawWritingRequest(BaseModel):
     workspace_id: str
     content: str = Field(min_length=1)
@@ -627,6 +632,30 @@ async def learn_revision(req: RevisionRequest) -> dict[str, Any]:
     store.write_json(brain / "thinking_profile.json", thinking)
     store.enqueue_sync("brain", workspace, analysis)
     return {"status": "learned", "analysis": analysis}
+
+
+@app.post("/api/brain/compare-revision", dependencies=[Depends(require_auth)])
+async def compare_revision(req: RevisionRequest) -> dict[str, Any]:
+    try:
+        analysis = await ai_service.learn_revision(req.ai_output, req.user_revision)
+    except AIUnavailable as exc:
+        raise error(str(exc), 503) from exc
+    return {"status": "analyzed", "analysis": analysis}
+
+
+@app.post("/api/brain/commit-revision", dependencies=[Depends(require_auth)])
+async def commit_revision(req: CommitRevisionRequest) -> dict[str, Any]:
+    workspace = workspace_id(req.workspace_id)
+    analysis = req.analysis
+    brain = store.workspace_path(workspace) / "brain"
+    style = store.read_json(brain / "style_profile.json")
+    thinking = store.read_json(brain / "thinking_profile.json")
+    style["rules"] = list(dict.fromkeys(style.get("rules", []) + analysis.get("style_rules", [])))[-100:]
+    thinking["patterns"] = list(dict.fromkeys(thinking.get("patterns", []) + analysis.get("thinking_patterns", [])))[-100:]
+    store.write_json(brain / "style_profile.json", style)
+    store.write_json(brain / "thinking_profile.json", thinking)
+    store.enqueue_sync("brain", workspace, analysis)
+    return {"status": "learned"}
 
 
 @app.post("/api/brain/learn/raw-writing", dependencies=[Depends(require_auth)])

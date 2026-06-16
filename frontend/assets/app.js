@@ -287,10 +287,14 @@ async function sendChat(event) {
       assistant.scrollIntoView({block: "end"});
     }
   } catch (error) {
-    if (fullResponse.trim()) {
-      toast(`Koneksi terputus: ${error.message}`, "error");
+    if (error.message.includes("Semua model inference gagal")) {
+      if (!fullResponse.trim()) assistant.querySelector(".msg-content").innerHTML = renderMarkdown("*(Jaringan AI sedang sibuk atau kuota habis, coba lagi nanti)*");
     } else {
-      assistant.querySelector(".msg-content").innerHTML = renderMarkdown(`**Error:** ${error.message}`);
+      if (fullResponse.trim()) {
+        toast(`Koneksi terputus: ${error.message}`, "error");
+      } else {
+        assistant.querySelector(".msg-content").innerHTML = renderMarkdown(`**Error:** ${error.message}`);
+      }
     }
   } finally {
     $("#chat-send").disabled = false;
@@ -400,7 +404,9 @@ async function generateWriting() {
     while (true) {
       const {value, done} = await reader.read();
       if (done) break;
-      $("#draft-content").value += decoder.decode(value, {stream: true});
+      let chunk = decoder.decode(value, {stream: true});
+      chunk = chunk.replace(/[*#_\[\]`]/g, ""); // Strip markdown
+      $("#draft-content").value += chunk;
       $("#draft-content").scrollTop = $("#draft-content").scrollHeight;
     }
     state.originalAiText = $("#draft-content").value;
@@ -408,7 +414,11 @@ async function generateWriting() {
     saveUndoState();
     updateWordCount();
   } catch (error) {
-    toast(error.message, "error");
+    if (error.message.includes("Semua model inference gagal")) {
+      toast("Jaringan AI sedang sibuk, silakan coba lagi nanti");
+    } else {
+      toast(error.message, "error");
+    }
   } finally {
     button.disabled = false;
     button.textContent = "Generate";
@@ -541,8 +551,9 @@ async function loadBrain() {
 
 function renderBrainTab() {
   if (!state.brain) return;
-  $("#brain-list").classList.toggle("hidden", ["raw", "references", "proposals"].includes(state.brainTab));
+  $("#brain-list").classList.toggle("hidden", ["raw", "compare", "references", "proposals"].includes(state.brainTab));
   $("#brain-teach").classList.toggle("hidden", state.brainTab !== "raw");
+  $("#brain-compare").classList.toggle("hidden", state.brainTab !== "compare");
   $("#reference-search").classList.toggle("hidden", state.brainTab !== "references");
   $("#proposal-list").classList.toggle("hidden", state.brainTab !== "proposals");
   let items = [];
@@ -593,19 +604,78 @@ async function learnRawWriting() {
   button.disabled = true;
   button.textContent = "Menganalisis...";
   try {
-    await jsonApi("/api/brain/learn/raw-writing", {
+    const result = await jsonApi("/api/brain/learn/raw-writing", {
       method: "POST", body: {workspace_id: state.workspace, content, type: "user"},
     });
     $("#raw-writing").value = "";
     state.brainTab = "style";
-    $$(".chip").forEach(chip => chip.classList.toggle("active", chip.dataset.brainTab === "style"));
+    $$(".chip").forEach(c => c.classList.toggle("active", c.dataset.brainTab === "style"));
     await loadBrain();
-    toast("Gaya tulisan dipelajari");
+    toast(`${result.analysis.style_rules.length} pola dipelajari`);
   } catch (error) {
     toast(error.message);
   } finally {
     button.disabled = false;
     button.textContent = "Analisis tulisan";
+  }
+}
+
+async function compareRevision() {
+  const original = $("#compare-original").value.trim();
+  const edited = $("#compare-edited").value.trim();
+  if (!original || !edited) return toast("Isi teks asli dan hasil edit");
+  const button = $("#compare-button");
+  button.disabled = true;
+  button.textContent = "Menganalisis...";
+  try {
+    const result = await jsonApi("/api/brain/compare-revision", {
+      method: "POST", body: {workspace_id: state.workspace, ai_output: original, user_revision: edited}
+    });
+    const proposals = result.analysis.style_rules.map(r => ({type: "Style Rule", content: r}))
+      .concat(result.analysis.thinking_patterns.map(p => ({type: "Thinking Pattern", content: p})));
+    $("#compare-proposals").innerHTML = proposals.map((p) => `
+      <article class="proposal-card">
+        <label>${p.type}</label>
+        <textarea class="compare-proposal-content" data-type="${p.type === 'Style Rule' ? 'style' : 'thinking'}">${escapeHtml(p.content)}</textarea>
+      </article>`).join("") || "<p class='empty-state' style='min-height:100px'>Tidak ada perbedaan signifikan.</p>";
+    $("#compare-results").classList.remove("hidden");
+  } catch (error) {
+    toast(error.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Analisis Perubahan";
+  }
+}
+
+async function commitCompare() {
+  const button = $("#commit-compare-button");
+  button.disabled = true;
+  button.textContent = "Menyimpan...";
+  const style_rules = [];
+  const thinking_patterns = [];
+  $$(".compare-proposal-content").forEach(el => {
+    const text = el.value.trim();
+    if (text) {
+      if (el.dataset.type === "style") style_rules.push(text);
+      else thinking_patterns.push(text);
+    }
+  });
+  try {
+    await jsonApi("/api/brain/commit-revision", {
+      method: "POST", body: {workspace_id: state.workspace, analysis: {style_rules, thinking_patterns}}
+    });
+    toast("Pola berhasil dipelajari", "success");
+    $("#compare-original").value = "";
+    $("#compare-edited").value = "";
+    $("#compare-results").classList.add("hidden");
+    state.brainTab = "style";
+    $$(".chip").forEach(c => c.classList.toggle("active", c.dataset.brainTab === "style"));
+    await loadBrain();
+  } catch (error) {
+    toast(error.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Simpan & Train";
   }
 }
 
@@ -820,6 +890,8 @@ function bindEvents() {
   });
   
   $("#import-button").onclick = () => $("#import-file").click();
+  $("#compare-button").onclick = compareRevision;
+  $("#commit-compare-button").onclick = commitCompare;
   $("#import-file").onchange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
