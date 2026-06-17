@@ -1366,3 +1366,7 @@ window.bulkRejectProposals = async function() {
     toast("Semua proposal ditolak");
     await loadProposals();
     await loadBrain();
+  } catch (err) {
+    toast(err.message, "error");
+  }
+};
