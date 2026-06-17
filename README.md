@@ -97,9 +97,35 @@ data/
   archive/
 ```
 
-## Menjalankan lokal
+## Menjalankan Server Lokal
 
+Berikut panduan untuk mengaktifkan server GhostWriter di berbagai sistem operasi:
+
+### Windows (PowerShell)
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+copy .env.example .env
+uvicorn app:app --reload --port 7860
+```
+
+### Ubuntu / Debian
 ```bash
+sudo apt update
+sudo apt install python3-venv python3-pip
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn app:app --reload --port 7860
+```
+
+### Termux (Android)
+Pastikan Anda sudah menginstal paket yang dibutuhkan sebelum menjalankan server.
+```bash
+pkg update && pkg upgrade
+pkg install python binutils
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt

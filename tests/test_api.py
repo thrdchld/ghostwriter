@@ -514,7 +514,7 @@ class SyncApiTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Export
+# Export & Import
 # ---------------------------------------------------------------------------
 
 class ExportApiTests(unittest.TestCase):
@@ -522,6 +522,20 @@ class ExportApiTests(unittest.TestCase):
         r = client.get("/api/export")
         self.assertEqual(r.status_code, 200)
         self.assertIn("zip", r.headers.get("content-type", ""))
+
+class ImportApiTests(unittest.TestCase):
+    def test_import_zip_success(self):
+        # Create a dummy snapshot zip to import
+        import io
+        import zipfile
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("workspaces/test_ws/data.json", '{"id":"test_ws","name":"Test WS"}')
+        zip_buffer.seek(0)
+        
+        r = client.post("/api/import", files={"file": ("backup.zip", zip_buffer, "application/zip")})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["status"], "success")
 
 
 # ---------------------------------------------------------------------------

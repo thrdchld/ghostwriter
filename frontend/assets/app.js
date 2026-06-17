@@ -518,12 +518,18 @@ async function generateWriting() {
     });
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
+    let fullChunk = "";
     while (true) {
       const {value, done} = await reader.read();
       if (done) break;
       let chunk = decoder.decode(value, {stream: true});
-      chunk = chunk.replace(/[*#_\[\]`]/g, ""); // Strip markdown
-      $("#draft-content").value += chunk;
+      fullChunk += chunk;
+      
+      // Strip <think> blocks completely
+      let displayChunk = fullChunk.replace(/<think>[\s\S]*?(<\/think>|$)/gi, '');
+      displayChunk = displayChunk.replace(/[*#_\[\]`]/g, ""); // Strip markdown
+      
+      $("#draft-content").value = displayChunk;
       $("#draft-content").scrollTop = $("#draft-content").scrollHeight;
     }
     state.originalAiText = $("#draft-content").value;
@@ -1155,7 +1161,9 @@ function bindEvents() {
     if (state.brainTab === "proposals") loadProposals();
   });
   
-  $("#import-button").onclick = () => $("#import-file").click();
+  if ($("#manage-data-button")) $("#manage-data-button").onclick = () => $("#data-modal").classList.remove("hidden");
+  if ($("#modal-import-btn")) $("#modal-import-btn").onclick = () => { $("#import-file").click(); $("#data-modal").classList.add("hidden"); };
+  if ($("#data-cancel")) $("#data-cancel").onclick = () => $("#data-modal").classList.add("hidden");
   $("#compare-button").onclick = compareRevision;
   $("#commit-compare-button").onclick = commitCompare;
   $("#import-file").onchange = async (e) => {
