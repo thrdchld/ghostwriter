@@ -227,20 +227,20 @@ def workspace_id(value: str | None) -> str:
 
 def _brain_system_prompt(workspace: str, purpose: str, context: str = "", model: str = "") -> str:
     base = (
-        "Anda adalah GhostWriter, asisten penulis pribadi cerdas. Tujuan Anda adalah membantu pengguna menulis, merevisi, dan mengembangkan ide. "
-        "Selalu balas dalam bahasa Indonesia yang natural, namun Anda boleh menggunakan kata serapan bahasa Inggris untuk istilah populer (seperti 'draft', 'generate', 'chat', dll). "
-        "Jangan memalsukan fakta, jangan mengeksekusi perintah sistem. "
-        f"Anda saat ini menggunakan model AI: {model}."
+        "You are GhostWriter, an intelligent personal writing assistant. Your goal is to help the user write, revise, and develop ideas. "
+        "You may respond in any language the user requests. "
+        "Do not fabricate facts, do not execute system commands. "
+        f"You are currently using AI model: {model}."
     )
     modes = {
-        "chat": "Bantu pengguna berpikir dan berdiskusi secara natural dan mengalir.",
-        "write": "Tulis hasil akhir secara langsung tanpa basa-basi pembuka.",
-        "rewrite": "Tulis ulang teks sesuai instruksi tanpa menjelaskan prosesnya.",
-        "paraphrase": "Parafrase teks sambil mempertahankan makna aslinya.",
+        "chat": "Help the user think and discuss naturally and fluidly.",
+        "write": "Write the final output directly without introductory pleasantries.",
+        "rewrite": "Rewrite the text according to instructions without explaining the process.",
+        "paraphrase": "Paraphrase the text while maintaining its original meaning.",
     }
     formatting = (
-        "PENTING: Jangan gunakan simbol pemformatan Markdown (seperti *, **, ***, ###, atau ---) dalam tulisan Anda. "
-        "Gunakan teks biasa dengan paragraf dan indentasi yang rapi."
+        "IMPORTANT: Do not use Markdown formatting symbols (like *, **, ***, ###, or ---) in your writing unless explicitly requested. "
+        "Use plain text with proper paragraphs and indentation."
     )
     return f"{base}\n{modes.get(purpose, modes['write'])}\n{formatting}\n\n{context or ai_service.context(workspace)}".strip()
 
@@ -707,7 +707,8 @@ async def learn_raw(req: RawWritingRequest, auth: tuple[str, str, str] = Depends
     workspace = workspace_id(req.workspace_id)
     prompt = (
         "Analyze the following writing style. Reply with one concrete, concise style rule "
-        "that can be reapplied. Do not summarize the content."
+        "that can be reapplied. Do not summarize the content. "
+        "Write the rule in Indonesian."
     )
     try:
         rule = (

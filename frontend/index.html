@@ -41,11 +41,11 @@
       <div class="sidebar-footer" style="padding-bottom: 12px;">
         <button id="theme-button" class="nav-item" type="button" aria-label="Toggle Theme">
           <span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v2"/><path d="M12 19v2"/><path d="M4.2 4.2l1.4 1.4"/><path d="M18.4 18.4l1.4 1.4"/><path d="M3 12h2"/><path d="M19 12h2"/><path d="M4.2 19.8l1.4-1.4"/><path d="M18.4 5.6l1.4-1.4"/><circle cx="12" cy="12" r="3.5"/></svg></span>
-          <span class="nav-label" id="theme-detail">Sistem</span>
+          <span class="nav-label" id="theme-detail">System</span>
         </button>
         <button id="logout-button" class="nav-item" type="button" aria-label="Logout" style="color: var(--error);">
           <span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg></span>
-          <span class="nav-label">Keluar</span>
+          <span class="nav-label">Logout</span>
         </button>
       </div>
     </aside>
@@ -68,54 +68,60 @@
       <main class="main">
       <section id="view-chat" class="view active" aria-label="Chat">
         <div class="section-heading">
-          <div><span class="eyebrow">Percakapan</span><h1 id="chat-title">Chat Baru</h1></div>
+          <div><span class="eyebrow">Conversation</span><h1 id="chat-title">New Chat</h1></div>
           <div style="display: flex; gap: 8px;">
-            <button id="chat-list-button" class="icon-button" type="button" aria-label="Riwayat Chat">
+            <button id="chat-list-button" class="icon-button" type="button" aria-label="Chat History">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v5l3 2"/><path d="M12 3a9 9 0 1 0 9 9"/></svg>
             </button>
-            <button id="new-chat-button" class="icon-button" type="button" aria-label="Chat Baru">
+            <button id="new-chat-button" class="icon-button" type="button" aria-label="New Chat">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
             </button>
           </div>
         </div>
         <div id="chat-messages" class="chat-messages">
-          <div class="empty-state"><strong>Mulai dengan ide.</strong><span>Diskusikan konsep, susun argumen, atau minta umpan balik.</span></div>
+          <div class="empty-state"><strong>Start with an idea.</strong><span>Discuss concepts, structure arguments, or ask for feedback.</span></div>
         </div>
         <form id="chat-form" class="composer">
-          <textarea id="chat-input" rows="1" placeholder="Tulis pesan..." required></textarea>
-          <button id="chat-send" class="send-button" type="submit" aria-label="Kirim">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7Z"/></svg>
+          <textarea id="chat-input" rows="1" placeholder="Write a message..." required></textarea>
+          <button id="chat-send" class="send-button" type="submit" aria-label="Send">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
           </button>
         </form>
       </section>
 
       <section id="view-write" class="view" aria-label="Write">
         <div class="section-heading">
-          <div><span class="eyebrow">Meja Tulis</span><h1>Tulis</h1></div>
-          <button id="draft-list-button" class="text-button" type="button">Draft</button>
+          <div><span class="eyebrow">Writing Desk</span><h1>Write</h1></div>
+          <button id="draft-list-button" class="text-button" type="button">Drafts</button>
         </div>
         <div class="prompt-card">
-          <textarea id="write-prompt" rows="3" placeholder="Apa yang ingin Anda tulis?"></textarea>
+          <textarea id="write-prompt" rows="3" placeholder="What do you want to write?"></textarea>
           <div class="prompt-actions">
-            <div id="write-mode" class="tab-row" style="margin: 0; padding: 0;">
-              <button class="chip active" data-mode="write" type="button">Tulis</button>
-              <button class="chip" data-mode="rewrite" type="button">Tulis Ulang</button>
-              <button class="chip" data-mode="paraphrase" type="button">Parafrase</button>
+            <div class="custom-dropdown" id="write-mode-dropdown">
+              <button class="dropdown-trigger" type="button" id="write-mode-trigger">
+                <span class="selected-text" id="write-mode-display">Write</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div class="dropdown-menu hidden" id="write-mode-menu">
+                <button class="dropdown-item active" data-mode="write" type="button">Write</button>
+                <button class="dropdown-item" data-mode="rewrite" type="button">Rewrite</button>
+                <button class="dropdown-item" data-mode="paraphrase" type="button">Paraphrase</button>
+              </div>
             </div>
-            <button id="generate-button" class="button primary compact" type="button">Generate</button>
+            <button id="generate-button" class="button primary compact" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg>Generate</button>
           </div>
         </div>
         <div class="editor-card">
-          <input id="draft-title" class="title-input" value="Tanpa Judul" aria-label="Draft title">
-          <textarea id="draft-content" class="document-editor" placeholder="Hasil generate AI dan tulisan Anda akan muncul di sini..."></textarea>
+          <input id="draft-title" class="title-input" value="Untitled" aria-label="Draft title">
+          <textarea id="draft-content" class="document-editor" placeholder="AI generated content and your writing will appear here..."></textarea>
           <div class="editor-footer">
             <div>
-              <span id="save-state">Belum disimpan</span>
-              <span id="word-count" class="word-count">0 kata · 0 karakter</span>
+              <span id="save-state">Not saved</span>
+              <span id="word-count" class="word-count">0 words · 0 chars</span>
             </div>
             <div>
-              <button id="copy-button" class="text-button" type="button">Salin</button>
-              <button id="train-button" class="text-button accent" type="button">Latih</button>
+              <button id="copy-button" class="text-button" type="button">Copy</button>
+              <button id="train-button" class="text-button accent" type="button">Train</button>
             </div>
           </div>
         </div>
@@ -123,15 +129,15 @@
 
       <section id="view-brain" class="view" aria-label="Brain">
         <div class="section-heading">
-          <div><span class="eyebrow">Kecerdasan Personal</span><h1>Brain</h1></div>
+          <div><span class="eyebrow">Personal Intelligence</span><h1>Brain</h1></div>
           <button id="refresh-brain" class="icon-button" type="button" aria-label="Refresh">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
           </button>
         </div>
         <div class="brain-stats">
-          <article><strong id="style-count">0</strong><span>Aturan gaya bahasa</span></article>
-          <article><strong id="thinking-count">0</strong><span>Pola pikir</span></article>
-          <article><strong id="revision-count">0</strong><span>Revisi</span></article>
+          <article><strong id="style-count">0</strong><span>Style Rules</span></article>
+          <article><strong id="thinking-count">0</strong><span>Thinking Patterns</span></article>
+          <article><strong id="revision-count">0</strong><span>Revisions</span></article>
         </div>
         <div class="tab-row">
           <button class="chip" data-brain-tab="raw" type="button">Teach</button>
@@ -144,9 +150,9 @@
         </div>
         <div id="brain-list" class="insight-list"></div>
         <div id="brain-teach" class="teach-card hidden">
-          <label for="raw-writing">Sampel tulisan asli</label>
-          <textarea id="raw-writing" rows="9" placeholder="Tempel tulisan Anda di sini agar GhostWriter bisa mempelajari gayanya..."></textarea>
-          <button id="learn-raw-button" class="button primary" type="button">Analisis tulisan</button>
+          <label for="raw-writing">Original Writing Sample</label>
+          <textarea id="raw-writing" rows="9" placeholder="Paste your writing here so GhostWriter can learn your style..."></textarea>
+          <button id="learn-raw-button" class="button primary" type="button">Analyze Writing</button>
         </div>
         <div id="brain-compare" class="teach-card hidden">
           <label>Original Text</label>
@@ -160,23 +166,23 @@
           </div>
         </div>
         <div id="reference-search" class="teach-card hidden">
-          <label for="reference-query">Cari referensi internet</label>
-          <div class="inline-form"><input id="reference-query" placeholder="Topik atau kata kunci"><button id="reference-button" class="button primary compact" type="button">Cari</button></div>
+          <label for="reference-query">Search Web References</label>
+          <div class="inline-form"><input id="reference-query" placeholder="Topic or keyword"><button id="reference-button" class="button primary compact" type="button">Search</button></div>
           <div id="reference-list" class="reference-list"></div>
         </div>
         <div id="proposal-bulk-actions" style="display:none; gap:8px; margin-bottom:12px; padding: 12px 16px; background: var(--bg-hover); border-radius: 8px;">
-          <button class="button compact primary" onclick="bulkApproveProposals()" type="button">Setujui Semua</button>
-          <button class="button compact danger" onclick="bulkRejectProposals()" type="button">Tolak Semua</button>
+          <button class="button compact primary" onclick="bulkApproveProposals()" type="button">Approve All</button>
+          <button class="button compact danger" onclick="bulkRejectProposals()" type="button">Reject All</button>
         </div>
         <div id="proposal-list" class="proposal-list hidden"></div>
       </section>
 
       <section id="view-menu" class="view" aria-label="Settings">
-        <div class="section-heading"><div><span class="eyebrow">Sistem</span><h1>Pengaturan</h1></div></div>
+        <div class="section-heading"><div><span class="eyebrow">System</span><h1>Settings</h1></div></div>
         <div class="settings-list">
           <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 16px; cursor: default;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span><strong>Provider AI</strong><small>Pilih provider dan muat model</small></span>
+              <span><strong>AI Provider</strong><small>Select provider and load models</small></span>
             </div>
             <div style="display: flex; flex-direction: column; gap: 12px;">
               <div style="display: flex; gap: 8px; align-items: center;">
@@ -193,17 +199,17 @@
               </div>
               <div id="models-browser" class="hidden" style="margin-top: 4px;">
                 <div style="margin-bottom: 12px; font-size: 13px;">
-                  Model Aktif: <strong id="active-model-display">Belum ada</strong>
+                  Active Model: <strong id="active-model-display">None</strong>
                 </div>
-                <input type="text" id="model-search" placeholder="Cari model..." style="width: 100%; margin-bottom: 12px;">
+                <input type="text" id="model-search" placeholder="Search models..." style="width: 100%; margin-bottom: 12px;">
                 <div id="models-list" style="display: grid; gap: 8px; max-height: 240px; overflow-y: auto;"></div>
               </div>
             </div>
           </div>
-          <button id="manual-sync" class="setting-row" type="button"><span><strong>Sinkronisasi GitHub</strong><small id="sync-detail">Belum dikonfigurasi</small></span><span class="setting-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></span></button>
-          <button id="manage-data-button" class="setting-row" type="button"><span><strong>Kelola Data</strong><small>Impor atau ekspor data offline Anda</small></span><span class="setting-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M3 12h18"/><path d="m8 8 4-4 4 4"/><path d="m16 16-4 4-4-4"/></svg></span></button>
+          <button id="manual-sync" class="setting-row" type="button"><span><strong>GitHub Sync</strong><small id="sync-detail">Not configured</small></span><span class="setting-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></span></button>
+          <button id="manage-data-button" class="setting-row" type="button"><span><strong>Manage Data</strong><small>Import or export your offline data</small></span><span class="setting-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M3 12h18"/><path d="m8 8 4-4 4 4"/><path d="m16 16-4 4-4-4"/></svg></span></button>
           <input type="file" id="import-file" accept=".zip" class="hidden">
-          <button id="install-button" class="setting-row hidden" type="button"><span><strong>Instal Aplikasi</strong><small>Tambahkan GhostWriter ke layar utama</small></span><span class="setting-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg></span></button>
+          <button id="install-button" class="setting-row hidden" type="button"><span><strong>Install App</strong><small>Add GhostWriter to home screen</small></span><span class="setting-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg></span></button>
         </div>
         <p class="version">GhostWriter v1.0 · Initial release</p>
       </section>
@@ -238,33 +244,37 @@
   </div>
   <div id="sync-modal" class="backdrop modal-overlay hidden">
     <div class="dialog-card">
-      <h3 style="margin: 0 0 16px 0; font-size: 1.25rem;">Sinkronisasi GitHub</h3>
-      <p style="margin-bottom: 24px; color: var(--text-muted); font-size: 0.875rem;">Pilih metode sinkronisasi. "Kirim" akan menimpa data di GitHub dengan data lokal Anda. "Ambil" akan menimpa data lokal Anda dengan data dari GitHub.</p>
+      <h3 style="margin: 0 0 16px 0; font-size: 1.25rem;">GitHub Sync</h3>
+      <p style="margin-bottom: 24px; color: var(--text-muted); font-size: 0.875rem;">Choose sync method. "Push" overwrites GitHub with your local data. "Pull" overwrites local data with GitHub data.</p>
       <div style="display:flex; flex-direction:column; gap:12px; margin-bottom: 24px;">
-         <button id="sync-push-btn" class="button primary" type="button" style="width:100%; justify-content:center;">Kirim ke GitHub (Push)</button>
-         <button id="sync-pull-btn" class="button primary" type="button" style="width:100%; justify-content:center;">Ambil dari GitHub (Pull)</button>
+         <button id="sync-push-btn" class="button primary" type="button" style="width:100%; justify-content:center;">Push to GitHub</button>
+         <button id="sync-pull-btn" class="button primary" type="button" style="width:100%; justify-content:center;">Pull from GitHub</button>
       </div>
       <div class="dialog-actions" style="justify-content:center;">
-        <button id="sync-cancel" class="button compact" type="button">Batal</button>
+        <button id="sync-cancel" class="button compact" type="button">Cancel</button>
       </div>
     </div>
   </div>
   <div id="data-modal" class="backdrop modal-overlay hidden">
     <div class="dialog-card">
-      <h3 style="margin: 0 0 16px 0; font-size: 1.25rem;">Kelola Data</h3>
-      <p style="margin-bottom: 24px; color: var(--text-muted); font-size: 0.875rem;">Impor data dari perangkat untuk memulihkan cadangan (ini akan menimpa data yang ada), atau ekspor data ke perangkat sebagai ZIP.</p>
+      <h3 style="margin: 0 0 16px 0; font-size: 1.25rem;">Manage Data</h3>
+      <p style="margin-bottom: 24px; color: var(--text-muted); font-size: 0.875rem;">Import data from your device to restore backup (this overwrites existing data), or export data as a ZIP.</p>
       <div style="display:flex; flex-direction:column; gap:12px; margin-bottom: 24px;">
          <button id="modal-import-btn" class="button primary" type="button" style="width:100%; justify-content:center;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg> Impor Data
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg> Import Data
          </button>
          <a href="/api/export" id="modal-export-btn" class="button primary" style="width:100%; justify-content:center; text-decoration: none;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 4h14"/></svg> Ekspor Data
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 4h14"/></svg> Export Data
          </a>
       </div>
       <div class="dialog-actions" style="justify-content:center;">
-        <button id="data-cancel" class="button compact" type="button">Batal</button>
+        <button id="data-cancel" class="button compact" type="button">Cancel</button>
       </div>
     </div>
+  </div>
+  <div id="loading-overlay" class="backdrop modal-overlay hidden" style="z-index: 999; flex-direction: column; gap: 16px;">
+    <div class="spinner"></div>
+    <div style="color: white; font-weight: 600; font-size: 16px;" id="loading-text">Syncing...</div>
   </div>
   <div id="toast" class="toast hidden"></div>
   <script src="/assets/app.js?v=2" defer></script>

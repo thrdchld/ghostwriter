@@ -296,7 +296,7 @@ function showWorkspaceSheet() {
       </button>
       <div style="padding-right: 16px; display:flex; gap:8px;">
          <button class="text-button accent" onclick="editWorkspace('${escapeHtml(item.id)}', '${escapeHtml(item.name).replace(/'/g, "\\'")}')" style="font-size:12px; padding:4px 8px;">Edit</button>
-         ${item.id === 'writing' ? '' : `<button class="text-button danger" onclick="deleteWorkspace('${escapeHtml(item.id)}')" style="font-size:12px; padding:4px 8px; color:var(--error);">Hapus</button>`}
+         ${item.id === 'writing' ? '' : `<button class="text-button danger" onclick="deleteWorkspace('${escapeHtml(item.id)}')" style="font-size:12px; padding:4px 8px; color:var(--error);">Delete</button>`}
       </div>
     </div>`).join("");
   openSheet("Pilih workspace", `${items}
@@ -316,7 +316,7 @@ async function switchWorkspace(id) {
   restoreLocalDraft();
   closeSheet();
   await Promise.all([loadBrain(), loadSyncStatus()]);
-    toast("Workspace diubah");
+    toast("Workspace changed");
 }
 
 async function createWorkspace(customName = null) {
@@ -337,9 +337,10 @@ function appendMessage(role, content = "") {
   const node = document.createElement("div");
   node.className = `message ${role}`;
   if (role === "assistant") {
-    node.innerHTML = `<div class="msg-content">${renderMarkdown(content)}</div><button class="chat-copy-btn" type="button" aria-label="Copy" onclick="navigator.clipboard.writeText(this.previousElementSibling.innerText.trim()); toast('Message copied', 'success')">📋 Copy</button>`;
+    node.innerHTML = `<div class="msg-content">${renderMarkdown(content)}</div><button class="chat-copy-btn" type="button" aria-label="Copy" onclick="navigator.clipboard.writeText(this.previousElementSibling.innerText.trim()); toast('Message copied', 'success')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>`;
   } else {
-    node.textContent = content;
+    node.innerHTML = `<div class="msg-content"></div><button class="chat-copy-btn" type="button" aria-label="Copy" onclick="navigator.clipboard.writeText(this.previousElementSibling.innerText.trim()); toast('Message copied', 'success')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>`;
+    node.querySelector('.msg-content').textContent = content;
   }
   messages.appendChild(node);
   node.scrollIntoView({behavior: "smooth", block: "end"});
@@ -364,8 +365,8 @@ async function sendChat(event) {
   let fullResponse = "";
   
   const sendBtn = $("#chat-send");
-  sendBtn.textContent = "⏹";
-  sendBtn.setAttribute("aria-label", "Berhenti");
+  sendBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>';
+  sendBtn.setAttribute("aria-label", "Stop");
   
   chatAbortController = new AbortController();
 
@@ -390,12 +391,12 @@ async function sendChat(event) {
     }
   } catch (error) {
     if (error.name === "AbortError") {
-      toast("Dibatalkan");
+      toast("Cancelled");
     } else if (error.message.includes("Semua model inference gagal")) {
-      if (!fullResponse.trim()) assistant.querySelector(".msg-content").innerHTML = renderMarkdown("*(Jaringan AI sibuk atau kuota habis, silakan coba lagi nanti)*");
+      if (!fullResponse.trim()) assistant.querySelector(".msg-content").innerHTML = renderMarkdown("*(AI network busy, please try again later)*");
     } else {
       if (fullResponse.trim()) {
-        toast(`Koneksi terputus: ${error.message}`, "error");
+        toast(`Connection lost: ${error.message}`, "error");
       } else {
         assistant.querySelector(".msg-content").innerHTML = renderMarkdown(`**Error:** ${error.message}`);
       }
@@ -403,8 +404,8 @@ async function sendChat(event) {
   } finally {
     chatAbortController = null;
     const sendBtn = $("#chat-send");
-    sendBtn.textContent = "↑";
-    sendBtn.setAttribute("aria-label", "Kirim");
+    sendBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+    sendBtn.setAttribute("aria-label", "Send");
     sendBtn.disabled = false;
     setTimeout(async () => {
       const previous = state.brain?.pending_proposals || 0;
@@ -412,7 +413,7 @@ async function sendChat(event) {
         const profile = await jsonApi(`/api/brain/profile?workspace_id=${encodeURIComponent(state.workspace)}`);
         state.brain = profile;
         $("#proposal-count").textContent = profile.pending_proposals ? `(${profile.pending_proposals})` : "";
-        if (profile.pending_proposals > previous) toast("Ada proposal pembelajaran baru untuk ditinjau");
+        if (profile.pending_proposals > previous) toast("New learning proposal available for review");
       } catch (_) {}
     }, 4500);
   }
@@ -476,7 +477,7 @@ async function archiveChat(id) {
 async function restoreChat(id) {
   await jsonApi("/api/chat/restore", {method: "POST", body: {workspace_id: state.workspace, chat_id: id}});
   await renderChatHistory(true);
-  toast("Chat dipulihkan");
+  toast("Chat restored");
 }
 
 async function purgeChat(id) {
@@ -500,7 +501,7 @@ async function generateWriting() {
     return;
   }
   const prompt = $("#write-prompt").value.trim();
-  if (!prompt) return toast("Tulis instruksi terlebih dahulu");
+  if (!prompt) return toast("Write instructions first");
   const button = $("#generate-button");
   button.textContent = "Berhenti";
   $("#draft-content").value = "";
@@ -509,7 +510,7 @@ async function generateWriting() {
   generateAbortController = new AbortController();
 
   try {
-    const activeModeNode = document.querySelector("#write-mode .chip.active");
+    const activeModeNode = document.querySelector("#write-mode-menu .dropdown-item.active");
     const mode = activeModeNode ? activeModeNode.dataset.mode : "write";
     const response = await api("/api/ai/generate", {
       method: "POST",
@@ -538,9 +539,9 @@ async function generateWriting() {
     updateWordCount();
   } catch (error) {
     if (error.name === "AbortError") {
-      toast("Dibatalkan");
+      toast("Cancelled");
     } else if (error.message.includes("All inference models failed") || error.message.includes("Semua model inference gagal")) {
-      toast("Jaringan AI sibuk, silakan coba lagi nanti");
+      toast("AI network busy, please try again later");
     } else {
       toast(error.message, "error");
     }
@@ -591,7 +592,7 @@ function restoreLocalDraft() {
 
 function scheduleDraftSave() {
   saveDraftLocally();
-  $("#save-state").textContent = navigator.onLine ? "Menyimpan..." : "Tersimpan offline";
+  $("#save-state").textContent = navigator.onLine ? "Saving..." : "Saved offline";
   clearTimeout(state.saveTimer);
   state.saveTimer = setTimeout(saveDraftToServer, 1200);
 }
@@ -612,10 +613,10 @@ async function saveDraftToServer() {
       body: {workspace_id: state.workspace, draft_id: state.currentDraft, title, content},
     });
     saveDraftLocally();
-    $("#save-state").textContent = "Tersimpan";
+    $("#save-state").textContent = "Saved";
     loadSyncStatus();
   } catch (error) {
-    $("#save-state").textContent = "Tersimpan offline";
+    $("#save-state").textContent = "Saved offline";
   }
 }
 
@@ -635,15 +636,15 @@ async function loadDraft(id) {
   state.originalAiText = draft.content;
   $("#draft-title").value = draft.title;
   $("#draft-content").value = draft.content;
-  $("#save-state").textContent = "Tersimpan";
+  $("#save-state").textContent = "Saved";
   saveDraftLocally();
   closeSheet();
 }
 
 async function trainRevision() {
   const revised = $("#draft-content").value.trim();
-  if (!state.originalAiText || !revised) return toast("Generate tulisan lalu edit sebelum Melatih");
-  if (revised === state.originalAiText.trim()) return toast("Tidak ada revisi untuk dipelajari");
+  if (!state.originalAiText || !revised) return toast("Generate writing then edit before Training");
+  if (revised === state.originalAiText.trim()) return toast("No revisions to learn");
   const button = $("#train-button");
   button.disabled = true;
   button.textContent = "Mempelajari...";
@@ -682,6 +683,8 @@ function renderBrainTab() {
   $("#brain-compare").classList.toggle("hidden", state.brainTab !== "compare");
   $("#reference-search").classList.toggle("hidden", state.brainTab !== "references");
   $("#proposal-list").classList.toggle("hidden", state.brainTab !== "proposals");
+  const bulkActions = $("#proposal-bulk-actions");
+  if (bulkActions) bulkActions.style.display = state.brainTab === "proposals" && state.proposals?.length ? "flex" : "none";
   
   const list = $("#brain-list");
   if (state.brainTab === "style") {
@@ -691,7 +694,7 @@ function renderBrainTab() {
         <p>${escapeHtml(item)}</p>
         <div class="insight-meta" style="display:flex; gap:12px; margin-top:8px;">
           <button class="text-button compact" onclick="editBrainItem('style', '${escapeHtml(item).replace(/'/g, "\\'")}', '${escapeHtml(item).replace(/'/g, "\\'")}')">Edit</button>
-          <button class="text-button compact danger" onclick="deleteBrainItem('style', '${escapeHtml(item).replace(/'/g, "\\'")}')">Hapus</button>
+          <button class="text-button compact danger" onclick="deleteBrainItem('style', '${escapeHtml(item).replace(/'/g, "\\'")}')">Delete</button>
         </div>
       </article>`).join("") : `<div class="empty-state" style="min-height:240px"><strong>Belum ada pola.</strong><span>Latih revisi atau sediakan sampel tulisan.</span></div>`;
   } else if (state.brainTab === "thinking") {
@@ -701,7 +704,7 @@ function renderBrainTab() {
         <p>${escapeHtml(item)}</p>
         <div class="insight-meta" style="display:flex; gap:12px; margin-top:8px;">
           <button class="text-button compact" onclick="editBrainItem('thinking', '${escapeHtml(item).replace(/'/g, "\\'")}', '${escapeHtml(item).replace(/'/g, "\\'")}')">Edit</button>
-          <button class="text-button compact danger" onclick="deleteBrainItem('thinking', '${escapeHtml(item).replace(/'/g, "\\'")}')">Hapus</button>
+          <button class="text-button compact danger" onclick="deleteBrainItem('thinking', '${escapeHtml(item).replace(/'/g, "\\'")}')">Delete</button>
         </div>
       </article>`).join("") : `<div class="empty-state" style="min-height:240px"><strong>Belum ada pola pemikiran.</strong></div>`;
   } else if (state.brainTab === "memory") {
@@ -713,7 +716,7 @@ function renderBrainTab() {
         <p>${escapeHtml(item.content)}</p>
         <div class="insight-meta" style="display:flex; gap:12px; margin-top:8px;">
           <button class="text-button compact" onclick="editBrainItem('memory', '${escapeHtml(item.id)}', '${escapeHtml(item.content).replace(/'/g, "\\'")}')">Edit</button>
-          <button class="text-button compact danger" onclick="deleteBrainItem('memory', '${escapeHtml(item.id)}')">Hapus</button>
+          <button class="text-button compact danger" onclick="deleteBrainItem('memory', '${escapeHtml(item.id)}')">Delete</button>
         </div>
       </article>`).join("") : `<div class="empty-state" style="min-height:240px"><strong>Belum ada memori.</strong></div>`;
   }
@@ -730,8 +733,8 @@ async function loadProposals() {
         <label>${escapeHtml(item.type)}</label>
         <textarea class="proposal-content">${escapeHtml(item.content)}</textarea>
         <div class="proposal-actions">
-          <button class="button mini-button reject-proposal" type="button">Tolak</button>
-          <button class="button primary approve-proposal" type="button">Setujui</button>
+          <button class="button mini-button reject-proposal" type="button">Reject</button>
+          <button class="button primary approve-proposal" type="button">Approve</button>
         </div>
       </article>`).join("") || `<div class="empty-state" style="min-height:220px"><strong>No proposals.</strong><span>New proposals will appear after the system analyzes conversations.</span></div>`;
     $$(".approve-proposal").forEach(button => button.onclick = () => decideProposal(button, true));
@@ -745,12 +748,12 @@ async function decideProposal(button, approve) {
   const card = button.closest(".proposal-card");
   const body = {workspace_id: state.workspace, proposal_id: card.dataset.id};
   if (approve) body.content = card.querySelector(".proposal-content").value.trim();
-  if (approve && !body.content) return toast("Konten proposal tidak boleh kosong");
+  if (approve && !body.content) return toast("Proposal content cannot be empty");
   button.disabled = true;
   try {
     await jsonApi(`/api/brain/proposals/${approve ? "approve" : "reject"}`, {method: "POST", body});
     await Promise.all([loadProposals(), loadBrain()]);
-    toast(approve ? "Pembelajaran disetujui" : "Proposal ditolak");
+    toast(approve ? "Learning approved" : "Proposal rejected");
   } catch (error) {
     toast(error.message);
   }
@@ -758,7 +761,7 @@ async function decideProposal(button, approve) {
 
 async function learnRawWriting() {
   const content = $("#raw-writing").value.trim();
-  if (!content) return toast("Masukkan sampel tulisan");
+  if (!content) return toast("Enter writing sample");
   const button = $("#learn-raw-button");
   button.disabled = true;
   button.textContent = "Menganalisis...";
@@ -782,7 +785,7 @@ async function learnRawWriting() {
 async function compareRevision() {
   const original = $("#compare-original").value.trim();
   const edited = $("#compare-edited").value.trim();
-  if (!original || !edited) return toast("Isi teks asli dan teks yang diedit");
+  if (!original || !edited) return toast("Fill in original and edited text");
   const button = $("#compare-button");
   button.disabled = true;
   button.textContent = "Menganalisis...";
@@ -809,7 +812,7 @@ async function compareRevision() {
 async function commitCompare() {
   const button = $("#commit-compare-button");
   button.disabled = true;
-  button.textContent = "Menyimpan...";
+  button.textContent = "Saving...";
   const style_rules = [];
   const thinking_patterns = [];
   $$(".compare-proposal-content").forEach(el => {
@@ -823,7 +826,7 @@ async function commitCompare() {
     await jsonApi("/api/brain/commit-revision", {
       method: "POST", body: {workspace_id: state.workspace, analysis: {style_rules, thinking_patterns}}
     });
-    toast("Pola berhasil dipelajari", "success");
+    toast("Pattern successfully learned", "success");
     $("#compare-original").value = "";
     $("#compare-edited").value = "";
     $("#compare-results").classList.add("hidden");
@@ -891,31 +894,37 @@ function manualSync() {
   
   $("#sync-push-btn").onclick = async () => {
     $("#sync-modal").classList.add("hidden");
-    if (!(await showConfirm("Data di GitHub akan ditimpa seluruhnya dengan data lokal Anda saat ini. Lanjutkan Push?"))) return;
+    if (!(await showConfirm("Data in GitHub will be fully overwritten by your local data. Continue Push?"))) return;
     try {
       $("#manual-sync").disabled = true;
-      toast("Mengirim data ke GitHub...", "info");
+      $("#loading-text").textContent = "Pushing to GitHub...";
+      $("#loading-overlay").classList.remove("hidden");
+      toast("Sending data to GitHub...", "info");
       await jsonApi("/api/sync/push", {method: "POST"});
-      toast("Sinkronisasi Push selesai", "success");
+      toast("Push sync completed", "success");
       await loadSyncStatus();
     } catch (error) {
       toast(error.message, "error");
     } finally {
       $("#manual-sync").disabled = false;
+      $("#loading-overlay").classList.add("hidden");
     }
   };
 
   $("#sync-pull-btn").onclick = async () => {
     $("#sync-modal").classList.add("hidden");
-    if (!(await showConfirm("Data lokal Anda akan ditimpa dengan data dari GitHub. Tindakan ini tidak dapat dibatalkan. Lanjutkan Pull?"))) return;
+    if (!(await showConfirm("Your local data will be overwritten by GitHub data. This cannot be undone. Continue Pull?"))) return;
     try {
       $("#manual-sync").disabled = true;
-      toast("Mengambil data dari GitHub...", "info");
+      $("#loading-text").textContent = "Pulling from GitHub...";
+      $("#loading-overlay").classList.remove("hidden");
+      toast("Fetching data from GitHub...", "info");
       await jsonApi("/api/sync/pull", {method: "POST"});
-      toast("Sinkronisasi Pull selesai. Memuat ulang aplikasi...", "success");
+      toast("Pull sync completed. Reloading...", "success");
       setTimeout(() => location.reload(), 1500);
     } catch (error) {
       toast(error.message, "error");
+      $("#loading-overlay").classList.add("hidden");
     } finally {
       $("#manual-sync").disabled = false;
     }
@@ -925,7 +934,7 @@ function manualSync() {
 
 
 function bindEvents() {
-  if ($("#model-status")) $("#model-status").onclick = () => { const provider = localStorage.getItem("ghostwriter:ai_provider") || "openrouter"; const m = localStorage.getItem("ghostwriter:openrouter_model"); const k = localStorage.getItem(`ghostwriter:key_${provider}`) || localStorage.getItem("ghostwriter:openrouter_key"); toast(m && k ? `${provider.toUpperCase()} · ${m}` : "AI belum dikonfigurasi — buka Pengaturan → Provider AI", m && k ? "success" : "error"); };
+  if ($("#model-status")) $("#model-status").onclick = () => { const provider = localStorage.getItem("ghostwriter:ai_provider") || "openrouter"; const m = localStorage.getItem("ghostwriter:openrouter_model"); const k = localStorage.getItem(`ghostwriter:key_${provider}`) || localStorage.getItem("ghostwriter:openrouter_key"); toast(m && k ? `${provider.toUpperCase()} · ${m}` : "AI not configured — open Settings → AI Provider", m && k ? "success" : "error"); };
   if ($("#new-chat-button")) $("#new-chat-button").onclick = () => { resetChat(); closeSheet(); };
   document.addEventListener("keydown", (e) => {
     const el = e.target;
@@ -947,13 +956,17 @@ function bindEvents() {
       el.id === "reference-query";
 
     if (isEnter && !e.shiftKey && isSubmitField) {
-      e.preventDefault();
-      if (el.id === "chat-input") el.closest("form")?.requestSubmit();
-      else if (el.id === "write-prompt") $("#generate-button")?.click();
-      else if (el.id === "raw-writing") $("#learn-raw-button")?.click();
-      else if (el.id === "compare-original" || el.id === "compare-edited") $("#compare-button")?.click();
-      else if (el.id === "reference-query") $("#reference-button")?.click();
-      return;
+      if (el.id === "chat-input" && !isLikelyDesktop) {
+        // Allow mobile enter to pass through and create a newline
+      } else {
+        e.preventDefault();
+        if (el.id === "chat-input") el.closest("form")?.requestSubmit();
+        else if (el.id === "write-prompt") $("#generate-button")?.click();
+        else if (el.id === "raw-writing") $("#learn-raw-button")?.click();
+        else if (el.id === "compare-original" || el.id === "compare-edited") $("#compare-button")?.click();
+        else if (el.id === "reference-query") $("#reference-button")?.click();
+        return;
+      }
     }
 
     if (isEnter && !e.shiftKey && el.classList.contains("proposal-content")) {
@@ -986,12 +999,30 @@ function bindEvents() {
   if ($("#sidebar-backdrop")) $("#sidebar-backdrop").onclick = toggleSidebar;
   if ($("#theme-button")) $("#theme-button").onclick = cycleTheme;
   
-  $$("#write-mode .chip").forEach(chip => {
-    chip.onclick = () => {
-      $$("#write-mode .chip").forEach(c => c.classList.remove("active"));
-      chip.classList.add("active");
+  const writeDropdownTrigger = $("#write-mode-trigger");
+  const writeDropdownMenu = $("#write-mode-menu");
+  const writeModeDisplay = $("#write-mode-display");
+  
+  if (writeDropdownTrigger && writeDropdownMenu) {
+    writeDropdownTrigger.onclick = (e) => {
+      e.stopPropagation();
+      writeDropdownMenu.classList.toggle("hidden");
     };
-  });
+    
+    $$("#write-mode-menu .dropdown-item").forEach(item => {
+      item.onclick = (e) => {
+        e.stopPropagation();
+        $$("#write-mode-menu .dropdown-item").forEach(i => i.classList.remove("active"));
+        item.classList.add("active");
+        writeModeDisplay.textContent = item.textContent;
+        writeDropdownMenu.classList.add("hidden");
+      };
+    });
+    
+    document.addEventListener("click", () => {
+      writeDropdownMenu.classList.add("hidden");
+    });
+  }
 
   // ── Multi-Provider AI Settings ───────────────────────────────────────────
   const PROVIDER_MODEL_URLS = {
@@ -1103,7 +1134,7 @@ function bindEvents() {
   loadModelsBtn.onclick = async () => {
     const provider = providerSelect.value;
     const key = apiKeyInput.value.trim();
-    if (!key) return toast("Masukkan API Key Anda terlebih dahulu", "error");
+    if (!key) return toast("Enter your API Key first", "error");
 
     loadModelsBtn.disabled = true;
     loadModelsBtn.textContent = "Memuat...";
@@ -1113,7 +1144,7 @@ function bindEvents() {
       allModels = await fetcher(key);
       modelsBrowser?.classList.remove("hidden");
       renderModels();
-      toast(`Berhasil memuat ${allModels.length} model`, "success");
+      toast(`Successfully loaded ${allModels.length} models`, "success");
     } catch (err) {
       toast(`Failed to load models: ${err.message}`, "error");
     } finally {
@@ -1169,7 +1200,7 @@ function bindEvents() {
   $("#import-file").onchange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    toast("Mengimpor data...");
+    toast("Importing data...");
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -1179,7 +1210,7 @@ function bindEvents() {
 
       const response = await fetch("/api/import", { method: "POST", headers, body: formData });
       if (!response.ok) throw await response.json().catch(() => ({message: `HTTP ${response.status}`}));
-      toast("Impor berhasil! Memuat ulang...", "success");
+      toast("Import successful! Reloading...", "success");
       setTimeout(() => window.location.reload(), 1500);
     } catch (err) {
       toast("Failed to import file: " + err.message, "error");
@@ -1290,7 +1321,7 @@ window.editWorkspace = async function(id, oldName) {
       if (id === state.workspace) {
         $("#workspace-name").textContent = newName;
       }
-      toast("Workspace diubah namanya");
+      toast("Workspace renamed");
       showWorkspaceSheet();
     }
   } catch (err) {
@@ -1311,7 +1342,7 @@ window.deleteWorkspace = async function(id) {
       if (id === state.workspace) {
         await switchWorkspace("writing");
       }
-      toast("Workspace dihapus");
+      toast("Workspace deleted");
     }
   } catch (err) {
     toast(err.message, "error");
