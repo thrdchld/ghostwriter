@@ -264,7 +264,7 @@ function applyTheme() {
     document.documentElement.removeAttribute("data-theme");
     if ($("#theme-detail")) $("#theme-detail").textContent = "Auto";
     if (themeBtnSpan) {
-      themeBtnSpan.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/><path d="M19.07 4.93l-1.41 1.41M12 2v2M4.93 4.93l1.41 1.41M2 12h2M6.34 17.66l-1.41 1.41"/></svg>`;
+      themeBtnSpan.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2M4.93 4.93l1.41 1.41M2 12h2M6.34 17.66l-1.41 1.41M12 20v2"/><path d="M12 18A6 6 0 0 1 12 6"/><path d="M12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6a4.5 4.5 0 0 0 0-12z" fill="currentColor"/></svg>`;
     }
   } else if (theme === "dark") {
     document.documentElement.setAttribute("data-theme", "dark");
@@ -1607,9 +1607,49 @@ function bindEvents() {
   // Attachment upload triggers
   const attachButton = $("#attach-button");
   const attachmentInput = $("#attachment-input");
-  if (attachButton && attachmentInput) {
-    attachButton.onclick = () => attachmentInput.click();
+  const attachMenu = $("#attach-menu");
+  const attachImageBtn = $("#attach-image-btn");
+  const attachDocBtn = $("#attach-doc-btn");
+
+  if (attachButton && attachmentInput && attachMenu) {
+    attachButton.onclick = (e) => {
+      e.stopPropagation();
+      attachMenu.classList.toggle("hidden");
+    };
+
+    if (attachImageBtn) {
+      attachImageBtn.onclick = (e) => {
+        e.stopPropagation();
+        attachMenu.classList.add("hidden");
+        attachmentInput.accept = "image/*";
+        attachmentInput.click();
+      };
+    }
+
+    if (attachDocBtn) {
+      attachDocBtn.onclick = (e) => {
+        e.stopPropagation();
+        attachMenu.classList.add("hidden");
+        attachmentInput.accept = "text/*,application/pdf,application/json,application/javascript,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        attachmentInput.click();
+      };
+    }
+
     attachmentInput.onchange = handleAttachmentSelect;
+
+    // Close menu when clicking outside
+    document.addEventListener("click", (e) => {
+      if (!attachMenu.contains(e.target) && e.target !== attachButton && !attachButton.contains(e.target)) {
+        attachMenu.classList.add("hidden");
+      }
+    });
+
+    // Close menu on Escape key
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        attachMenu.classList.add("hidden");
+      }
+    });
   }
 
   // Error retry trigger

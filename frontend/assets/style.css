@@ -1656,6 +1656,64 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
 .login-card input, .login-card button { width: 100%; }
 .error-text { color: var(--error) !important; font-size: 13px; min-height: 20px; margin-top: 8px; }
 
+/* Attachment Menu Popover */
+.attach-container {
+  position: relative;
+  display: flex;
+}
+.attach-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  z-index: 100;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transform-origin: bottom left;
+  transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.attach-menu.hidden {
+  display: none !important;
+  opacity: 0;
+  transform: translateY(4px) scale(0.95);
+  pointer-events: none;
+}
+.attach-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+.attach-menu-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.attach-menu-item svg {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+.attach-menu-item:hover svg {
+  color: var(--text-primary);
+}
+
 /* ─── Responsive ─────────────────────────────────────────────────────────── */
 .hidden-desktop { display: none !important; }
 
