@@ -38,10 +38,10 @@
         <button class="nav-item" data-view="brain" type="button"><span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></svg></span><span class="nav-label">Brain</span></button>
         <button class="nav-item" data-view="menu" type="button"><span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span><span class="nav-label">Settings</span></button>
       </nav>
-      <div class="sidebar-footer" style="padding-bottom: 12px;">
+      <div class="sidebar-footer">
         <button id="theme-button" class="nav-item" type="button" aria-label="Toggle Theme">
-          <span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v2"/><path d="M12 19v2"/><path d="M4.2 4.2l1.4 1.4"/><path d="M18.4 18.4l1.4 1.4"/><path d="M3 12h2"/><path d="M19 12h2"/><path d="M4.2 19.8l1.4-1.4"/><path d="M18.4 5.6l1.4-1.4"/><circle cx="12" cy="12" r="3.5"/></svg></span>
-          <span class="nav-label" id="theme-detail">System</span>
+          <span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2"/><path d="M12 19v2"/><path d="M4.2 4.2l1.4 1.4"/><path d="M18.4 18.4l1.4 1.4"/><path d="M3 12h2"/><path d="M19 12h2"/><path d="M4.2 19.8l1.4-1.4"/><path d="M18.4 5.6l1.4-1.4"/><circle cx="12" cy="12" r="3.5"/></svg></span>
+          <span class="nav-label" id="theme-detail">Auto</span>
         </button>
         <button id="logout-button" class="nav-item" type="button" aria-label="Logout" style="color: var(--error);">
           <span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg></span>
@@ -140,13 +140,24 @@
           <article><strong id="revision-count">0</strong><span>Revisions</span></article>
         </div>
         <div class="tab-row">
-          <button class="chip" data-brain-tab="raw" type="button">Teach</button>
-          <button class="chip" data-brain-tab="compare" type="button">Compare</button>
-          <button class="chip active" data-brain-tab="style" type="button">Style</button>
-          <button class="chip" data-brain-tab="thinking" type="button">Thinking</button>
-          <button class="chip" data-brain-tab="references" type="button">References</button>
-          <button class="chip" data-brain-tab="memory" type="button">Memory</button>
+          <!-- Proposals (top-level, standalone) -->
           <button class="chip" data-brain-tab="proposals" type="button">Proposals <span id="proposal-count"></span></button>
+
+          <!-- Learn group -->
+          <span class="tab-group-label">Learn</span>
+          <div class="tab-group-chips">
+            <button class="chip" data-brain-tab="raw" type="button">Original Text</button>
+            <button class="chip" data-brain-tab="compare" type="button">Compare Text</button>
+          </div>
+
+          <!-- Source group -->
+          <span class="tab-group-label">Source</span>
+          <div class="tab-group-chips">
+            <button class="chip active" data-brain-tab="style" type="button">Style</button>
+            <button class="chip" data-brain-tab="memory" type="button">Memory</button>
+            <button class="chip" data-brain-tab="thinking" type="button">Thinking</button>
+            <button class="chip" data-brain-tab="references" type="button">Search References</button>
+          </div>
         </div>
         <div id="brain-list" class="insight-list"></div>
         <div id="brain-teach" class="teach-card hidden">
@@ -272,9 +283,9 @@
       </div>
     </div>
   </div>
-  <div id="loading-overlay" class="backdrop modal-overlay hidden" style="z-index: 999; flex-direction: column; gap: 16px;">
+  <div id="loading-overlay" class="backdrop modal-overlay hidden" style="flex-direction: column; gap: 16px;">
     <div class="spinner"></div>
-    <div style="color: white; font-weight: 600; font-size: 16px;" id="loading-text">Syncing...</div>
+    <div class="loading-text" id="loading-text">Syncing...</div>
   </div>
   <div id="toast" class="toast hidden"></div>
   <script src="/assets/app.js?v=2" defer></script>

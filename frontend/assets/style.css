@@ -1,3 +1,4 @@
+/* ─── Design Tokens ─────────────────────────────────────────────────────── */
 :root {
   --bg-base: #f5f6f8;
   --bg-surface: #ffffff;
@@ -21,6 +22,7 @@
   --status-success: #16a34a;
   --status-warning: #f59e0b;
   --status-danger: #dc2626;
+  --error: #dc2626;
 
   --bg-backdrop: rgba(15, 23, 42, 0.48);
   --shadow-color: rgba(15, 23, 42, 0.06);
@@ -35,6 +37,9 @@
   --radius-full: 9999px;
 
   --focus-ring: 0 0 0 3px rgba(15, 23, 42, 0.08);
+
+  --sidebar-width: 260px;
+  --topbar-height: 68px;
 }
 :root[data-theme="dark"] {
   --bg-base: #0f1115;
@@ -58,6 +63,7 @@
 
   --bg-backdrop: rgba(3, 7, 18, 0.72);
   --shadow-color: rgba(0, 0, 0, 0.35);
+  --error: #f87171;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -82,8 +88,11 @@
 
     --bg-backdrop: rgba(3, 7, 18, 0.72);
     --shadow-color: rgba(0, 0, 0, 0.35);
+    --error: #f87171;
   }
 }
+
+/* ─── Reset & Base ──────────────────────────────────────────────────────── */
 * { box-sizing: border-box; }
 html {
   background: var(--bg-base);
@@ -98,6 +107,12 @@ body {
   background:
     radial-gradient(circle at top, rgba(255, 255, 255, 0.45), transparent 18%),
     var(--bg-base);
+}
+:root[data-theme="dark"] body,
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) body {
+    background: var(--bg-base);
+  }
 }
 button, input, textarea, select {
   color: inherit;
@@ -117,14 +132,17 @@ button:active { transform: translateY(0); }
   box-shadow: var(--focus-ring);
 }
 
+/* ─── App Shell ─────────────────────────────────────────────────────────── */
 .app-shell {
   display: flex;
   height: 100dvh;
   overflow: hidden;
   background: var(--bg-base);
 }
+
+/* ─── Sidebar ───────────────────────────────────────────────────────────── */
 .sidebar {
-  width: 260px;
+  width: var(--sidebar-width);
   border-right: 1px solid var(--border);
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
@@ -132,10 +150,12 @@ button:active { transform: translateY(0); }
   background: var(--bg-surface);
   z-index: 100;
   flex-shrink: 0;
+  height: 100dvh; /* full height always */
+  overflow: hidden;
 }
 .sidebar.minimized { width: 76px; }
 .sidebar-header {
-  height: 68px;
+  height: var(--topbar-height);
   display: flex;
   align-items: center;
   padding: 0 18px;
@@ -154,6 +174,7 @@ button:active { transform: translateY(0); }
 #icon-expand { display: none; }
 .sidebar.minimized #icon-collapse { display: none !important; }
 .sidebar.minimized #icon-expand { display: block !important; }
+
 .sidebar-nav {
   display: flex;
   flex-direction: column;
@@ -161,7 +182,20 @@ button:active { transform: translateY(0); }
   padding: 16px 12px;
   overflow-y: auto;
   overflow-x: hidden;
+  flex: 1;
 }
+
+/* sidebar footer – matches nav-item spacing */
+.sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px 12px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* ─── Nav Items (sidebar) ───────────────────────────────────────────────── */
 .nav-item {
   background: none;
   border: 0;
@@ -171,15 +205,19 @@ button:active { transform: translateY(0); }
   font-weight: 600;
   padding: 12px 14px;
   min-height: 48px;
+  width: 100%;
   display: flex;
   align-items: center;
   transition: all 0.2s ease;
   white-space: nowrap;
+  text-align: left;
 }
 .nav-item:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+  transform: none; /* no float on sidebar items */
 }
+.nav-item:active { transform: none; }
 .nav-item span:first-child {
   width: 22px;
   text-align: center;
@@ -195,6 +233,17 @@ button:active { transform: translateY(0); }
   background: var(--accent-soft);
   color: var(--text-primary);
 }
+
+/* sidebar minimized: icon-only centering */
+.sidebar.minimized .nav-item {
+  justify-content: center;
+  padding: 12px;
+}
+.sidebar.minimized .nav-item span:first-child {
+  margin-right: 0;
+}
+
+/* ─── Main Wrapper ──────────────────────────────────────────────────────── */
 .main-wrapper {
   flex: 1;
   min-width: 0;
@@ -206,21 +255,29 @@ button:active { transform: translateY(0); }
   flex-direction: column;
   background: var(--bg-base);
 }
+
+/* ─── Top Bar (Issue #1: fixed/sticky at top always) ───────────────────── */
 .topbar {
   align-items: center;
-  background: color-mix(in srgb, var(--bg-base) 82%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: color-mix(in srgb, var(--bg-base) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
   display: flex;
-  height: 68px;
+  height: var(--topbar-height);
   justify-content: space-between;
-  padding: env(safe-area-inset-top) 18px 0;
+  padding: 0 18px;
+  /* Sticky within .main-wrapper scroll container – never leaves the top */
   position: sticky;
-  top: -1px;
+  top: 0;
   z-index: 40;
   flex-shrink: 0;
+  /* Safe area for notched devices */
+  padding-top: env(safe-area-inset-top, 0);
+  height: calc(var(--topbar-height) + env(safe-area-inset-top, 0));
 }
+
+/* workspace button */
 .workspace-button {
   background: var(--bg-surface);
   border: 1px solid var(--border);
@@ -266,10 +323,13 @@ button:active { transform: translateY(0); }
   border-radius: 50%;
   height: 8px;
   width: 8px;
+  flex-shrink: 0;
 }
 .status-pill.ok i { background: var(--status-success); }
 .status-pill.warn i { background: var(--status-warning); }
 .status-pill.error i { background: var(--status-danger); }
+
+/* ─── Main Content ──────────────────────────────────────────────────────── */
 .main {
   flex: 1;
   margin: 0 auto;
@@ -323,6 +383,7 @@ button:active { transform: translateY(0); }
 }
 .setting-icon svg { width: 18px; height: 18px; }
 
+/* ─── Chat ──────────────────────────────────────────────────────────────── */
 .chat-messages {
   display: flex;
   flex-direction: column;
@@ -426,16 +487,18 @@ button:active { transform: translateY(0); }
   border-top: 1px solid var(--border);
   margin: 1.5em 0;
 }
+
+/* ─── Chat Composer (fixed input bar) ──────────────────────────────────── */
 .composer {
   align-items: flex-end;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 999px;
-  bottom: calc(18px + env(safe-area-inset-bottom));
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
   box-shadow: var(--shadow-lg);
   display: flex;
   gap: 8px;
-  left: 292px;
+  left: calc(var(--sidebar-width) + 18px);
   margin: auto;
   max-width: 940px;
   padding: 10px;
@@ -444,7 +507,7 @@ button:active { transform: translateY(0); }
   z-index: 10;
   transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.app-shell.sidebar-minimized .composer { left: 92px; }
+.app-shell.sidebar-minimized .composer { left: calc(76px + 18px); }
 .composer textarea {
   background: transparent;
   border: 0;
@@ -456,6 +519,9 @@ button:active { transform: translateY(0); }
   width: 100%;
   font-size: 15px;
   line-height: 1.45;
+  /* ensure caret is always visible when typing */
+  overflow-y: auto;
+  scroll-padding: 8px;
 }
 .send-button {
   background: var(--accent);
@@ -471,6 +537,7 @@ button:active { transform: translateY(0); }
 }
 .send-button svg { width: 18px; height: 18px; }
 
+/* ─── Write Cards ───────────────────────────────────────────────────────── */
 .prompt-card, .editor-card, .teach-card {
   background: var(--bg-surface);
   border: 1px solid var(--border);
@@ -488,6 +555,11 @@ button:active { transform: translateY(0); }
   width: 100%;
   min-height: 84px;
   font-size: 15px;
+  color: var(--text-primary);
+}
+.prompt-card textarea::placeholder,
+.teach-card textarea::placeholder {
+  color: var(--text-tertiary);
 }
 .prompt-actions, .editor-footer, .inline-form { align-items: center; display: flex; gap: 12px; justify-content: space-between; }
 select, input, textarea {
@@ -496,9 +568,15 @@ select, input, textarea {
   border-radius: var(--radius-md);
   outline: 0;
   padding: 12px 14px;
+  color: var(--text-primary);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
+select::placeholder, input::placeholder, textarea::placeholder {
+  color: var(--text-tertiary);
+}
 select:focus, input:focus, textarea:focus { border-color: var(--border-strong); box-shadow: var(--focus-ring); }
+
+/* ─── Buttons ───────────────────────────────────────────────────────────── */
 .button {
   background: var(--bg-surface);
   border: 1px solid var(--border);
@@ -521,6 +599,10 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
 }
 .button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 .button.compact { min-height: 36px; padding: 6px 12px; font-size: 13px; }
+.button.danger { color: var(--status-danger); border-color: var(--status-danger); }
+.button.danger:hover { background: var(--status-danger); color: var(--text-on-accent); }
+
+/* ─── Editor ────────────────────────────────────────────────────────────── */
 .editor-card { padding: 26px 28px; }
 .title-input {
   background: transparent;
@@ -559,6 +641,8 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
   border-left: 1px solid var(--border);
   opacity: 0.9;
 }
+
+/* ─── Brain ─────────────────────────────────────────────────────────────── */
 .brain-stats {
   display: grid;
   gap: 16px;
@@ -588,14 +672,36 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
   display: block;
   margin-top: 6px;
 }
+
+/* ─── Brain Tab Row ─────────────────────────────────────────────────────── */
 .tab-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  margin: 0 -16px 24px;
-  overflow-x: auto;
-  padding: 0 16px 8px;
-  scrollbar-width: none;
+  margin: 0 0 24px;
+  padding: 0 0 4px;
 }
+/* Group label inside tab-row */
+.tab-group-label {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  margin-bottom: 0;
+}
+.tab-group-label:first-child { margin-top: 0; }
+.tab-group-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .chip {
   background: var(--bg-surface);
   border: 1px solid var(--border);
@@ -615,6 +721,8 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
   border-color: var(--accent);
   color: var(--text-on-accent);
 }
+
+/* ─── Lists, Cards ──────────────────────────────────────────────────────── */
 .insight-list, .proposal-list { display: grid; gap: 12px; }
 .insight-card,
 .proposal-card,
@@ -629,6 +737,7 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
   line-height: 1.65;
   padding: 16px;
   box-shadow: var(--shadow-sm);
+  color: var(--text-primary);
 }
 .proposal-card { padding: 16px; box-shadow: var(--shadow-sm); }
 .proposal-card label {
@@ -666,6 +775,7 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
   font-weight: 700;
   margin: 4px 0 12px;
   font-size: 14px;
+  color: var(--text-primary);
 }
 .teach-card .button { width: 100%; }
 .inline-form input { flex: 1; min-width: 0; }
@@ -680,6 +790,8 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
   line-height: 1.6;
   margin-top: 6px;
 }
+
+/* ─── Settings ──────────────────────────────────────────────────────────── */
 .settings-list { overflow: hidden; }
 .setting-row {
   align-items: center;
@@ -709,12 +821,15 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
   margin-top: 18px;
   text-align: center;
 }
+
+/* ─── Backdrop & Sheet ──────────────────────────────────────────────────── */
 .backdrop {
   background: var(--bg-backdrop);
   inset: 0;
   position: fixed;
   z-index: 50;
   backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
 .sheet {
   background: var(--bg-surface);
@@ -724,7 +839,7 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
   left: 0;
   max-height: 88dvh;
   overflow-y: auto;
-  padding: 12px 18px calc(18px + env(safe-area-inset-bottom));
+  padding: 12px 18px calc(18px + env(safe-area-inset-bottom, 0px));
   position: fixed;
   right: 0;
   z-index: 51;
@@ -749,6 +864,7 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
   font-weight: 700;
   letter-spacing: -0.03em;
   margin: 0;
+  color: var(--text-primary);
 }
 .sheet-option {
   align-items: center;
@@ -762,6 +878,7 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
   width: 100%;
   transition: background 0.2s ease;
   border-radius: var(--radius-sm);
+  color: var(--text-primary);
 }
 .sheet-option:hover { background: var(--bg-hover); }
 .sheet-option small {
@@ -782,12 +899,13 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
   padding: 6px 10px;
   font-weight: 600;
   transition: all 0.2s ease;
+  color: var(--text-primary);
 }
 .mini-button:hover { background: var(--bg-hover); }
 .mini-button.danger { color: var(--status-danger); border-color: var(--border); }
 .mini-button.danger:hover {
   background: var(--status-danger);
-  color: var(--text-on-accent);
+  color: #ffffff;
   border-color: var(--status-danger);
 }
 .sheet-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
@@ -795,34 +913,56 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
 .model-search input { flex: 1; min-width: 0; }
 .model-results { display: grid; gap: 10px; }
 .model-result { padding: 14px; box-shadow: var(--shadow-sm); }
-.model-result strong { display: block; font-size: 14px; font-weight: 700; }
+.model-result strong { display: block; font-size: 14px; font-weight: 700; color: var(--text-primary); }
 .model-result small { display: block; overflow-wrap: anywhere; color: var(--text-secondary); margin: 6px 0 12px; font-size: 13px; }
 .modal-overlay { align-items: center; justify-content: center; display: flex; z-index: 90; }
 
+/* ─── Custom Dropdown ───────────────────────────────────────────────────── */
 .custom-dropdown { position: relative; display: inline-block; }
 .dropdown-trigger {
   background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md);
   padding: 8px 14px; font-size: 14px; font-weight: 600; color: var(--text-primary);
-  display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 42px; min-width: 140px; cursor: pointer; transition: all 0.2s ease;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 42px; min-width: 140px; cursor: pointer; transition: all 0.2s ease;
 }
 .dropdown-trigger:hover { background: var(--bg-hover); }
 .dropdown-menu {
   position: absolute; top: 100%; left: 0; margin-top: 6px; background: var(--bg-surface);
   border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-md);
-  min-width: 100%; z-index: 50; display: flex; flex-direction: column; overflow: hidden;
+  min-width: 100%; z-index: 55; display: flex; flex-direction: column; overflow: hidden;
 }
 .dropdown-item {
   background: none; border: none; padding: 10px 14px; text-align: left; font-size: 14px;
-  color: var(--text-secondary); cursor: pointer; transition: background 0.2s ease, color 0.2s ease; width: 100%; font-weight: 600;
+  color: var(--text-secondary); cursor: pointer; transition: background 0.2s ease, color 0.2s ease;
+  width: 100%; font-weight: 600;
 }
 .dropdown-item:hover { background: var(--bg-hover); color: var(--text-primary); }
 .dropdown-item.active { color: var(--accent); background: var(--accent-soft); }
 
+/* ─── Spinner / Loading ─────────────────────────────────────────────────── */
 .spinner {
-  width: 36px; height: 36px; border: 4px solid rgba(255, 255, 255, 0.3); border-radius: 50%;
-  border-top-color: #fff; animation: spin 1s ease-in-out infinite;
+  width: 36px; height: 36px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 1s ease-in-out infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── Loading Overlay (Issue #3) ────────────────────────────────────────── */
+#loading-overlay {
+  /* ensures it is above everything and truly blocks all interaction */
+  z-index: 999 !important;
+  pointer-events: all;
+}
+#loading-overlay .loading-text {
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 16px;
+  margin-top: 4px;
+}
+
+/* ─── Dialog / Modals ───────────────────────────────────────────────────── */
 .dialog-card {
   background: var(--bg-surface);
   border: 1px solid var(--border);
@@ -833,8 +973,12 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
   padding: 28px;
   text-align: center;
 }
+.dialog-card h3 { color: var(--text-primary); }
 .dialog-card p { margin: 0 0 22px; line-height: 1.6; color: var(--text-primary); font-size: 15px; }
+.dialog-card small { color: var(--text-secondary); }
 .dialog-actions { display: flex; gap: 12px; justify-content: flex-end; }
+
+/* ─── Toast ─────────────────────────────────────────────────────────────── */
 .toast {
   background: var(--accent);
   border-radius: var(--radius-md);
@@ -849,15 +993,17 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
   transform: translateX(-50%) translateY(16px);
   opacity: 0;
   pointer-events: none;
-  z-index: 110;
+  z-index: 1100; /* above loading overlay */
   transition: all 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.1);
   box-shadow: var(--shadow-md);
   text-align: center;
 }
 .toast:not(.hidden) { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: auto; }
-.toast.success { background: var(--status-success); color: var(--text-on-accent); }
-.toast.error { background: var(--status-danger); color: var(--text-on-accent); }
+.toast.success { background: var(--status-success); color: #ffffff; }
+.toast.error { background: var(--status-danger); color: #ffffff; }
 .toast.hidden { display: block !important; opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(16px); }
+
+/* ─── Copy Button on Chat Messages ─────────────────────────────────────── */
 .chat-copy-btn {
   position: absolute;
   bottom: 10px;
@@ -877,6 +1023,19 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
 }
 .message:hover .chat-copy-btn { opacity: 0.8; }
 .chat-copy-btn:hover { opacity: 1 !important; color: var(--text-primary); background: var(--bg-hover); }
+
+/* user message copy btn needs contrast against dark accent bg */
+.message.user .chat-copy-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.75);
+}
+.message.user .chat-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+/* ─── Login ──────────────────────────────────────────────────────────────── */
 .login-screen {
   align-items: center;
   background: var(--bg-base);
@@ -909,14 +1068,17 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
   width: 54px;
   margin-bottom: 24px;
 }
-.login-card h1 { font-size: 32px; font-weight: 700; margin: 0 0 10px; letter-spacing: -0.04em; }
+.login-card h1 { font-size: 32px; font-weight: 700; margin: 0 0 10px; letter-spacing: -0.04em; color: var(--text-primary); }
 .login-card p { color: var(--text-secondary); font-size: 15px; margin-bottom: 22px; }
 .login-card label { display: block; font-size: 13px; font-weight: 700; margin: 0 0 8px; color: var(--text-primary); }
 .login-card input { margin-bottom: 18px; }
 .login-card input, .login-card button { width: 100%; }
-.error-text { color: var(--status-danger) !important; font-size: 13px; min-height: 20px; margin-top: 8px; }
+.error-text { color: var(--error) !important; font-size: 13px; min-height: 20px; margin-top: 8px; }
+
+/* ─── Responsive ─────────────────────────────────────────────────────────── */
 .hidden-desktop { display: none !important; }
-@media (min-width: 780px) {
+
+@media (min-width: 781px) {
   .main { padding-left: 32px; padding-right: 32px; }
   .sheet {
     border-radius: var(--radius-lg);
@@ -928,8 +1090,12 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
     width: calc(100% - 40px);
   }
 }
+
+/* ─── Mobile (≤780px) ────────────────────────────────────────────────────── */
 @media (max-width: 780px) {
   .hidden-desktop { display: inline-flex !important; }
+
+  /* Sidebar: overlay mode on mobile */
   .sidebar {
     position: fixed;
     top: 0;
@@ -938,12 +1104,46 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
     width: 280px !important;
     box-shadow: var(--shadow-lg);
     transform: translateX(0);
-    z-index: 100;
+    z-index: 200; /* above topbar on mobile */
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  .sidebar.minimized { transform: translateX(-100%); box-shadow: none; }
-  #sidebar-backdrop { display: block; z-index: 90; }
-  .sidebar-minimized #sidebar-backdrop { display: none !important; }
-  .topbar { height: 64px; padding: 0 12px; }
+  .sidebar.minimized {
+    transform: translateX(-100%);
+    box-shadow: none;
+  }
+
+  /* Backdrop: intercepts taps behind sidebar (Issue #4) */
+  #sidebar-backdrop {
+    display: block !important;
+    z-index: 150; /* between sidebar (200) and main content */
+    pointer-events: none; /* default: no blocking */
+  }
+  /* When sidebar is open, backdrop is visible and blocks touches */
+  #sidebar-backdrop:not(.hidden) {
+    pointer-events: all;
+  }
+
+  /* Topbar: fixed at top on mobile so keyboard open/close can't move it */
+  .topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    height: 64px;
+    padding: 0 12px;
+    padding-top: env(safe-area-inset-top, 0);
+    height: calc(64px + env(safe-area-inset-top, 0));
+    /* ensure it never shifts */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+  }
+
+  /* Push main content down to avoid topbar overlap */
+  .main-wrapper {
+    padding-top: calc(64px + env(safe-area-inset-top, 0));
+  }
+
   .main { padding: 24px 16px 130px; }
   .section-heading h1 { font-size: 28px; }
   .composer {
@@ -953,6 +1153,6 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
   }
   .message { max-width: 92%; }
   .brain-stats { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
-  .tab-row { margin: 0 0 24px 0; padding: 0 0 8px 0; flex-wrap: wrap; overflow-x: visible; }
-  .sidebar-footer { padding: 0 12px 12px; }
+  .tab-row { margin: 0 0 24px; padding: 0 0 4px; }
+  .sidebar-footer { padding: 8px 12px 12px; }
 }

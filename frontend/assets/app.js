@@ -250,13 +250,13 @@ let theme = localStorage.getItem("ghostwriter:theme") || "system";
 function applyTheme() {
   if (theme === "system") {
     document.documentElement.removeAttribute("data-theme");
-    if ($("#theme-detail")) $("#theme-detail").textContent = "Sistem (Otomatis)";
+    if ($("#theme-detail")) $("#theme-detail").textContent = "Auto";
   } else if (theme === "dark") {
     document.documentElement.setAttribute("data-theme", "dark");
-    if ($("#theme-detail")) $("#theme-detail").textContent = "Gelap (Dark)";
+    if ($("#theme-detail")) $("#theme-detail").textContent = "Dark";
   } else {
     document.documentElement.setAttribute("data-theme", "light");
-    if ($("#theme-detail")) $("#theme-detail").textContent = "Terang (Light)";
+    if ($("#theme-detail")) $("#theme-detail").textContent = "Light";
   }
   localStorage.setItem("ghostwriter:theme", theme);
 }
@@ -377,7 +377,7 @@ async function sendChat(event) {
       signal: chatAbortController.signal,
     });
     state.currentChat = response.headers.get("X-Chat-Id");
-    if ($("#chat-title").textContent === "Chat Baru") $("#chat-title").textContent = message.slice(0, 60);
+    if ($("#chat-title").textContent === "New Chat" || $("#chat-title").textContent === "Chat Baru") $("#chat-title").textContent = message.slice(0, 60);
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     while (true) {
@@ -421,8 +421,8 @@ async function sendChat(event) {
 
 function resetChat() {
   state.currentChat = null;
-  $("#chat-title").textContent = "Chat Baru";
-  $("#chat-messages").innerHTML = `<div class="empty-state"><strong>Start with a thought.</strong><span>Discuss ideas, structure arguments, or request feedback.</span></div>`;
+  $("#chat-title").textContent = "New Chat";
+  $("#chat-messages").innerHTML = `<div class="empty-state"><strong>Start with an idea.</strong><span>Discuss concepts, structure arguments, or ask for feedback.</span></div>`;
 }
 
 async function showChatList() {
@@ -887,7 +887,7 @@ async function loadSyncStatus() {
 
 
 
-function manualSync() {
+async function manualSync() {
   $("#sync-modal").classList.remove("hidden");
   
   $("#sync-cancel").onclick = () => $("#sync-modal").classList.add("hidden");
@@ -895,36 +895,44 @@ function manualSync() {
   $("#sync-push-btn").onclick = async () => {
     $("#sync-modal").classList.add("hidden");
     if (!(await showConfirm("Data in GitHub will be fully overwritten by your local data. Continue Push?"))) return;
+    const overlay = $("#loading-overlay");
+    const loadingText = $("#loading-text");
     try {
       $("#manual-sync").disabled = true;
-      $("#loading-text").textContent = "Pushing to GitHub...";
-      $("#loading-overlay").classList.remove("hidden");
-      toast("Sending data to GitHub...", "info");
+      loadingText.textContent = "Pushing to GitHub...";
+      overlay.classList.remove("hidden");
       await jsonApi("/api/sync/push", {method: "POST"});
-      toast("Push sync completed", "success");
+      overlay.classList.add("hidden");
       await loadSyncStatus();
+      // Toast fires AFTER overlay is gone
+      setTimeout(() => toast("Push sync completed", "success"), 50);
     } catch (error) {
-      toast(error.message, "error");
+      overlay.classList.add("hidden");
+      setTimeout(() => toast(error.message, "error"), 50);
     } finally {
       $("#manual-sync").disabled = false;
-      $("#loading-overlay").classList.add("hidden");
     }
   };
 
   $("#sync-pull-btn").onclick = async () => {
     $("#sync-modal").classList.add("hidden");
     if (!(await showConfirm("Your local data will be overwritten by GitHub data. This cannot be undone. Continue Pull?"))) return;
+    const overlay = $("#loading-overlay");
+    const loadingText = $("#loading-text");
     try {
       $("#manual-sync").disabled = true;
-      $("#loading-text").textContent = "Pulling from GitHub...";
-      $("#loading-overlay").classList.remove("hidden");
-      toast("Fetching data from GitHub...", "info");
+      loadingText.textContent = "Pulling from GitHub...";
+      overlay.classList.remove("hidden");
       await jsonApi("/api/sync/pull", {method: "POST"});
-      toast("Pull sync completed. Reloading...", "success");
-      setTimeout(() => location.reload(), 1500);
+      overlay.classList.add("hidden");
+      // Toast fires AFTER overlay is gone, then reload
+      setTimeout(() => {
+        toast("Pull sync completed. Reloading...", "success");
+        setTimeout(() => location.reload(), 1500);
+      }, 50);
     } catch (error) {
-      toast(error.message, "error");
-      $("#loading-overlay").classList.add("hidden");
+      overlay.classList.add("hidden");
+      setTimeout(() => toast(error.message, "error"), 50);
     } finally {
       $("#manual-sync").disabled = false;
     }
@@ -993,10 +1001,18 @@ function bindEvents() {
     }
   });
 
+  // ── Sidebar toggle (mobile backdrop blocks all background interaction) ─
   $$(".nav-item").forEach(button => button.onclick = () => { showView(button.dataset.view); if (window.innerWidth <= 780) toggleSidebar(); });
   if ($("#sidebar-toggle")) $("#sidebar-toggle").onclick = toggleSidebar;
   if ($("#mobile-sidebar-toggle")) $("#mobile-sidebar-toggle").onclick = toggleSidebar;
-  if ($("#sidebar-backdrop")) $("#sidebar-backdrop").onclick = toggleSidebar;
+  if ($("#sidebar-backdrop")) {
+    $("#sidebar-backdrop").onclick = (e) => {
+      // Close sidebar only; stop event from reaching any element behind backdrop
+      e.stopPropagation();
+      e.preventDefault();
+      toggleSidebar();
+    };
+  }
   if ($("#theme-button")) $("#theme-button").onclick = cycleTheme;
   
   const writeDropdownTrigger = $("#write-mode-trigger");
@@ -1158,6 +1174,39 @@ function bindEvents() {
   $("#sheet-close").onclick = closeSheet;
   $("#backdrop").onclick = closeSheet;
   $("#chat-form").onsubmit = sendChat;
+
+  // ── Chat input: auto-resize + empty-state show/hide + caret scroll ───
+  const chatInput = $("#chat-input");
+  if (chatInput) {
+    function autoResizeChatInput() {
+      chatInput.style.height = "auto";
+      chatInput.style.height = Math.min(chatInput.scrollHeight, 150) + "px";
+      // Keep caret visible while typing (scroll textarea to cursor)
+      const lineHeight = parseFloat(getComputedStyle(chatInput).lineHeight) || 22;
+      const lines = chatInput.value.slice(0, chatInput.selectionEnd).split("\n");
+      const cursorY = lines.length * lineHeight;
+      if (cursorY > chatInput.scrollTop + chatInput.clientHeight) {
+        chatInput.scrollTop = cursorY - chatInput.clientHeight + lineHeight;
+      }
+    }
+    chatInput.addEventListener("input", () => {
+      autoResizeChatInput();
+      // Show/hide empty-state based on whether input is empty
+      const msgs = $("#chat-messages");
+      if (!msgs) return;
+      const isEmpty = chatInput.value.trim() === "";
+      const hasMessages = msgs.querySelector(".message");
+      const emptyState = msgs.querySelector(".empty-state");
+      if (!hasMessages) {
+        if (!isEmpty && emptyState) {
+          emptyState.style.display = "none";
+        } else if (isEmpty && emptyState) {
+          emptyState.style.display = "";
+        }
+      }
+    });
+  }
+
   $("#chat-list-button").onclick = showChatList;
   $("#generate-button").onclick = generateWriting;
   $("#draft-list-button").onclick = showDraftList;
