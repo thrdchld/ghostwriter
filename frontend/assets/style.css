@@ -1615,6 +1615,14 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
 .dialog-card small { color: var(--text-secondary); }
 .dialog-actions { display: flex; gap: 12px; justify-content: flex-end; }
 
+#confirm-modal {
+  z-index: 1050;
+}
+#confirm-modal .dialog-card {
+  max-width: 320px;
+  padding: 20px;
+}
+
 /* ─── Toast ─────────────────────────────────────────────────────────────── */
 .toast {
   background: var(--accent);
