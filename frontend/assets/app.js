@@ -108,6 +108,18 @@ async function syncAIConfigFromSupabase() {
       if (apiKeyInput) apiKeyInput.value = config.keys[config.provider] || "";
       if (orModelDisplay) orModelDisplay.textContent = config.model || "None";
       
+      // Update custom select dropdown display
+      const aiProviderDisplay = $("#ai-provider-display");
+      const aiProviderMenu = $("#ai-provider-menu");
+      if (aiProviderDisplay && config.provider) {
+        const activeOption = aiProviderMenu?.querySelector(`.dropdown-item[data-value="${config.provider}"]`);
+        if (activeOption) {
+          aiProviderMenu.querySelectorAll(".dropdown-item").forEach(el => el.classList.remove("active"));
+          activeOption.classList.add("active");
+          aiProviderDisplay.textContent = activeOption.textContent;
+        }
+      }
+      
       updateModelIndicator();
     }
   } catch (err) {
@@ -1059,7 +1071,7 @@ function restoreLocalDraft() {
     $("#draft-title").value = draft.title || "Untitled";
     $("#draft-content").value = draft.content || "";
     $("#write-prompt").value = draft.prompt || "";
-    $("#save-state").textContent = "Dipulihkan dari perangkat";
+    $("#save-state").textContent = "Restored from device";
   } catch (_) {}
   
   undoStack.length = 0;
@@ -1545,6 +1557,48 @@ function bindEvents() {
   if (apiKeyInput)    apiKeyInput.value    = savedKey;
   if (orModelDisplay) orModelDisplay.textContent = savedModel || "None";
 
+  // Update custom select dropdown display
+  const aiProviderDisplay = $("#ai-provider-display");
+  const aiProviderMenu = $("#ai-provider-menu");
+  if (aiProviderDisplay && savedProvider) {
+    const activeOption = aiProviderMenu?.querySelector(`.dropdown-item[data-value="${savedProvider}"]`);
+    if (activeOption) {
+      aiProviderMenu.querySelectorAll(".dropdown-item").forEach(el => el.classList.remove("active"));
+      activeOption.classList.add("active");
+      aiProviderDisplay.textContent = activeOption.textContent;
+    }
+  }
+
+  // Custom Dropdown Trigger and Option events
+  const aiProviderTrigger = $("#ai-provider-trigger");
+  if (aiProviderTrigger && aiProviderMenu) {
+    aiProviderTrigger.onclick = (e) => {
+      e.stopPropagation();
+      aiProviderMenu.classList.toggle("hidden");
+    };
+
+    document.addEventListener("click", (e) => {
+      if (!aiProviderTrigger.contains(e.target) && !aiProviderMenu.contains(e.target)) {
+        aiProviderMenu.classList.add("hidden");
+      }
+    });
+
+    aiProviderMenu.querySelectorAll(".dropdown-item").forEach(item => {
+      item.onclick = (e) => {
+        e.stopPropagation();
+        aiProviderMenu.querySelectorAll(".dropdown-item").forEach(el => el.classList.remove("active"));
+        item.classList.add("active");
+        if (aiProviderDisplay) aiProviderDisplay.textContent = item.textContent;
+        aiProviderMenu.classList.add("hidden");
+
+        if (providerSelect) {
+          providerSelect.value = item.dataset.value;
+          providerSelect.dispatchEvent(new Event("change"));
+        }
+      };
+    });
+  }
+
   providerSelect?.addEventListener("change", () => {
     const p = providerSelect.value;
     localStorage.setItem("ghostwriter:ai_provider", p);
@@ -1753,6 +1807,28 @@ function bindEvents() {
   if ($("#manage-data-button")) $("#manage-data-button").onclick = () => $("#data-modal").classList.remove("hidden");
   if ($("#modal-import-btn")) $("#modal-import-btn").onclick = () => { $("#import-file").click(); $("#data-modal").classList.add("hidden"); };
   if ($("#data-cancel")) $("#data-cancel").onclick = () => $("#data-modal").classList.add("hidden");
+  
+  if ($("#ai-settings-button")) $("#ai-settings-button").onclick = () => $("#ai-modal").classList.remove("hidden");
+  if ($("#ai-settings-close")) $("#ai-settings-close").onclick = () => $("#ai-modal").classList.add("hidden");
+
+  // Backdrop click-outside-to-close handlers
+  const dataModal = $("#data-modal");
+  if (dataModal) {
+    dataModal.onclick = (e) => {
+      if (e.target === dataModal) {
+        dataModal.classList.add("hidden");
+      }
+    };
+  }
+  const aiModal = $("#ai-modal");
+  if (aiModal) {
+    aiModal.onclick = (e) => {
+      if (e.target === aiModal) {
+        aiModal.classList.add("hidden");
+      }
+    };
+  }
+
   $("#compare-button").onclick = compareRevision;
   $("#commit-compare-button").onclick = commitCompare;
   $("#import-file").onchange = async (e) => {
