@@ -185,26 +185,28 @@ function showPrompt(message, defaultValue = "") {
     const cleanup = () => {
       modal.classList.add("hidden");
       $("#prompt-ok").removeEventListener("click", onOk);
-      $("#prompt-cancel").removeEventListener("click", onCancel);
+      $("#prompt-cancel").removeEventListener("click", onCancelClick);
       modal.removeEventListener("click", onBackdropClick);
     };
     const onOk = () => { cleanup(); resolve(input.value); };
-    const onCancel = () => { cleanup(); resolve(null); };
-    const onBackdropClick = async (e) => {
-      if (e.target === modal) {
-        if (input.value !== defaultValue) {
-          if (await showConfirm("Discard unsaved changes?")) {
-            cleanup();
-            resolve(null);
-          }
-        } else {
+    const onCancelClick = async () => {
+      if (input.value !== defaultValue) {
+        if (await showConfirm("Discard unsaved changes?")) {
           cleanup();
           resolve(null);
         }
+      } else {
+        cleanup();
+        resolve(null);
+      }
+    };
+    const onBackdropClick = (e) => {
+      if (e.target === modal) {
+        onCancelClick();
       }
     };
     $("#prompt-ok").addEventListener("click", onOk);
-    $("#prompt-cancel").addEventListener("click", onCancel);
+    $("#prompt-cancel").addEventListener("click", onCancelClick);
     modal.addEventListener("click", onBackdropClick);
   });
 }
@@ -1920,23 +1922,38 @@ function bindEvents() {
     };
   }
 
-  // Sidebar click dismisses open modals
+  // Sidebar click dismisses open modals (using capturing phase to intercept nav buttons/actions)
   const sidebar = $("#sidebar");
   if (sidebar) {
-    sidebar.addEventListener("click", () => {
+    sidebar.addEventListener("click", async (e) => {
+      let modalActive = false;
       if (!$("#confirm-modal").classList.contains("hidden")) {
+        modalActive = true;
+        e.stopPropagation();
+        e.preventDefault();
         $("#confirm-cancel").click();
-      }
-      if (!$("#prompt-modal").classList.contains("hidden")) {
+      } else if (!$("#prompt-modal").classList.contains("hidden")) {
+        modalActive = true;
+        e.stopPropagation();
+        e.preventDefault();
         $("#prompt-cancel").click();
-      }
-      if (!$("#data-modal").classList.contains("hidden")) {
+      } else if (!$("#data-modal").classList.contains("hidden")) {
+        modalActive = true;
+        e.stopPropagation();
+        e.preventDefault();
         $("#data-cancel").click();
+      } else if (!$("#ai-modal").classList.contains("hidden")) {
+        modalActive = true;
+        e.stopPropagation();
+        e.preventDefault();
+        await closeAIModalWithCheck();
+      } else if (!$("#sheet").classList.contains("hidden")) {
+        modalActive = true;
+        e.stopPropagation();
+        e.preventDefault();
+        closeSheet();
       }
-      if (!$("#ai-modal").classList.contains("hidden")) {
-        closeAIModalWithCheck();
-      }
-    });
+    }, true);
   }
 
   $("#compare-button").onclick = compareRevision;

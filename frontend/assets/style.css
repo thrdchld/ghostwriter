@@ -424,27 +424,38 @@ button:active { transform: translateY(0); }
 }
 .icon-button { font-size: 18px; }
 .icon-button svg { width: 18px; height: 18px; }
-.text-button.accent { color: var(--accent); }
+.text-button.accent,
+.text-button.compact:not(.danger) {
+  color: #2563eb !important;
+}
+.text-button.accent:hover,
+.text-button.compact:not(.danger):hover {
+  background: rgba(37, 99, 235, 0.1) !important;
+}
+
+:root[data-theme="dark"] .text-button.accent,
+:root[data-theme="dark"] .text-button.compact:not(.danger) {
+  color: #60a5fa !important;
+}
+:root[data-theme="dark"] .text-button.accent:hover,
+:root[data-theme="dark"] .text-button.compact:not(.danger):hover {
+  background: rgba(96, 165, 250, 0.15) !important;
+}
+
 .text-button.compact {
   min-height: 28px;
   min-width: unset;
   padding: 4px 8px;
   font-size: 13px;
 }
-.text-button.compact:not(.danger) {
-  color: var(--accent);
-}
-.text-button.compact:not(.danger):hover {
-  background: var(--accent-soft);
-}
 .text-button.danger {
   color: var(--status-danger) !important;
 }
 .text-button.danger:hover {
-  background: #fef2f2 !important;
+  background: rgba(220, 38, 38, 0.1) !important;
 }
 :root[data-theme="dark"] .text-button.danger:hover {
-  background: #450a0a !important;
+  background: rgba(239, 68, 68, 0.15) !important;
 }
 .setting-icon {
   display: inline-flex;
