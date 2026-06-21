@@ -573,8 +573,8 @@ function initScrollSystem() {
 
 // Custom copy handlers and rendering
 window.copyMessageText = function(button) {
-  const messageNode = button.closest('.message');
-  const text = messageNode.querySelector('.msg-content').innerText;
+  const wrapperNode = button.closest('.message-wrapper');
+  const text = wrapperNode.querySelector('.msg-content').innerText;
   navigator.clipboard.writeText(text).then(() => {
     toast('Message copied', 'success');
   });
@@ -613,12 +613,12 @@ function appendMessage(role, content = "", attachments = null) {
       <div class="message assistant">
         <div class="msg-content">${renderMarkdown(content)}</div>
         ${attachmentsHtml}
-        <div class="message-actions">
-          <button class="message-action-btn copy-btn" type="button" onclick="copyMessageText(this)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            Copy
-          </button>
-        </div>
+      </div>
+      <div class="message-actions">
+        <button class="message-action-btn copy-btn" type="button" onclick="copyMessageText(this)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy
+        </button>
       </div>
     `;
   } else {
@@ -626,12 +626,12 @@ function appendMessage(role, content = "", attachments = null) {
       <div class="message user">
         <div class="msg-content"></div>
         ${attachmentsHtml}
-        <div class="message-actions">
-          <button class="message-action-btn copy-btn" type="button" onclick="copyMessageText(this)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            Copy
-          </button>
-        </div>
+      </div>
+      <div class="message-actions">
+        <button class="message-action-btn copy-btn" type="button" onclick="copyMessageText(this)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy
+        </button>
       </div>
     `;
     node.querySelector('.msg-content').textContent = content;

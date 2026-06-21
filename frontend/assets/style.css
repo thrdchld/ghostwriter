@@ -734,12 +734,7 @@ tbody tr:hover {
 /* Message actions (minimal copy button) */
 .message-actions {
   display: flex;
-  margin-top: 8px;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-.message-wrapper:hover .message-actions {
-  opacity: 1;
+  margin-top: 4px;
 }
 .message-action-btn {
   background: transparent;
