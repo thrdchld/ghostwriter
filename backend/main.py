@@ -1206,7 +1206,8 @@ def sync_status() -> dict[str, Any]:
         else:
             store.client.table("workspaces").select("id").limit(1).execute()
             supabase_connected = True
-    except Exception:
+    except Exception as e:
+        print(f"Supabase connection check failed: {e}", flush=True)
         supabase_connected = False
 
     return {

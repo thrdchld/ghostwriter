@@ -184,7 +184,8 @@ if IS_TESTING or not settings.supabase_url or not settings.supabase_key:
 else:
     try:
         supabase = create_client(settings.supabase_url, settings.supabase_key)
-    except Exception:
+    except Exception as e:
+        print(f"Failed to create Supabase client: {e}", flush=True)
         supabase = MockSupabaseClient()
 
 class SupabaseStore:
