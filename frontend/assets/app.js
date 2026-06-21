@@ -929,7 +929,7 @@ async function generateWriting() {
   const prompt = $("#write-prompt").value.trim();
   if (!prompt) return toast("Write instructions first");
   const button = $("#generate-button");
-  button.textContent = "Berhenti";
+  button.textContent = "Stop";
   $("#draft-content").value = "";
   state.originalAiText = "";
   
