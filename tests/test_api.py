@@ -218,6 +218,84 @@ class DraftApiTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# Notes CRUD
+# ---------------------------------------------------------------------------
+
+class NotesApiTests(unittest.TestCase):
+    def setUp(self):
+        client.post("/api/workspace/switch", json={"workspace_id": "personal"})
+
+    def test_save_and_list_notes(self):
+        r = client.post("/api/notes/save", json={
+            "workspace_id": "personal",
+            "title": "Catatan API",
+            "content": "Isi Catatan API",
+            "pinned": True,
+            "tags": ["api-tag"],
+            "image": "data:image/png;base64,123",
+        })
+        self.assertEqual(r.status_code, 200)
+        note_id = r.json()["id"]
+        self.assertEqual(r.json()["title"], "Catatan API")
+        self.assertTrue(r.json()["pinned"])
+
+        r2 = client.get("/api/notes/list?workspace_id=personal")
+        self.assertEqual(r2.status_code, 200)
+        notes = r2.json()["items"]
+        self.assertTrue(any(n["id"] == note_id for n in notes))
+
+        r3 = client.post("/api/notes/save", json={
+            "workspace_id": "personal",
+            "id": note_id,
+            "title": "Catatan API Updated",
+            "content": "Isi Catatan API Updated",
+            "pinned": False,
+            "tags": ["api-tag-2"],
+        })
+        self.assertEqual(r3.status_code, 200)
+        self.assertEqual(r3.json()["title"], "Catatan API Updated")
+        self.assertFalse(r3.json()["pinned"])
+
+        r4 = client.get("/api/notes/list?workspace_id=personal&query=Updated&tag=api-tag-2")
+        self.assertEqual(r4.status_code, 200)
+        self.assertEqual(len(r4.json()["items"]), 1)
+
+        r5 = client.post("/api/notes/delete", json={
+            "workspace_id": "personal",
+            "note_id": note_id
+        })
+        self.assertEqual(r5.status_code, 200)
+
+        r6 = client.get("/api/notes/list?workspace_id=personal")
+        notes_after = r6.json()["items"]
+        self.assertFalse(any(n["id"] == note_id for n in notes_after))
+
+    def test_delete_bulk_notes(self):
+        r1 = client.post("/api/notes/save", json={
+            "workspace_id": "personal",
+            "title": "Note 1",
+            "content": "Content 1"
+        })
+        r2 = client.post("/api/notes/save", json={
+            "workspace_id": "personal",
+            "title": "Note 2",
+            "content": "Content 2"
+        })
+        id1 = r1.json()["id"]
+        id2 = r2.json()["id"]
+
+        r3 = client.post("/api/notes/delete-bulk", json={
+            "workspace_id": "personal",
+            "note_ids": [id1, id2]
+        })
+        self.assertEqual(r3.status_code, 200)
+
+        r4 = client.get("/api/notes/list?workspace_id=personal")
+        notes = r4.json()["items"]
+        self.assertFalse(any(n["id"] in (id1, id2) for n in notes))
+
+
+# ---------------------------------------------------------------------------
 # Chat lifecycle
 # ---------------------------------------------------------------------------
 

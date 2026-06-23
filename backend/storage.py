@@ -351,6 +351,9 @@ class SupabaseStore:
             elif parts[2] == "drafts":
                 draft_id = parts[3].replace(".json", "")
                 return ("draft", draft_id, None)
+            elif parts[2] == "notes":
+                note_id = parts[3].replace(".json", "")
+                return ("other_entity", workspace_id, f"notes/{note_id}")
             elif parts[2] == "references":
                 ref_id = parts[3].replace(".json", "")
                 return ("other_entity", workspace_id, f"references/{ref_id}")

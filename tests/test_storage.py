@@ -132,6 +132,15 @@ class EntityCRUDTests(unittest.TestCase):
         result = self.store.get_entity("personal", "drafts", "draft_abc")
         self.assertEqual(result["title"], "Hello")
 
+    def test_save_and_get_note_entity(self):
+        note = {"id": "note_123", "title": "Catatan", "content": "Isi Catatan", "pinned": True, "tags": ["tag1"]}
+        self.store.save_entity("personal", "notes", note)
+        result = self.store.get_entity("personal", "notes", "note_123")
+        self.assertEqual(result["title"], "Catatan")
+        self.assertEqual(result["content"], "Isi Catatan")
+        self.assertTrue(result["pinned"])
+        self.assertEqual(result["tags"], ["tag1"])
+
     def test_save_adds_schema_version(self):
         draft = {"id": "draft_sv", "title": "SV"}
         saved = self.store.save_entity("personal", "drafts", draft)

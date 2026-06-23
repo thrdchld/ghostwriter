@@ -35,6 +35,11 @@ const state = {
   autoScrollActive: true,
   lastSentMessage: null,
   aiStatusTimer: null,
+  notes: [],
+  notesLayout: "grid",
+  notesSelected: new Set(),
+  notesSearch: "",
+  notesActiveTag: "",
 };
 
 async function api(path, options = {}) {
@@ -325,6 +330,7 @@ function showView(view) {
   $$(".nav-item").forEach(node => node.classList.toggle("active", node.dataset.view === view));
   localStorage.setItem("ghostwaiter:activeView", view);
   if (view === "brain") loadBrain();
+  if (view === "notes") loadNotes();
   if (view === "menu") Promise.all([loadSyncStatus()]);
 }
 
@@ -351,8 +357,10 @@ async function initialize() {
   }
 
   const lastView = localStorage.getItem("ghostwaiter:activeView") || "chat";
+  initNotesSystem();
   showView(lastView);
   await loadWorkspaces();
+  if (lastView === "notes") loadNotes();
   await Promise.all([loadSyncStatus(), syncAIConfigFromSupabase()]);
   restoreLocalDraft();
   restoreChatDraft();
@@ -490,7 +498,10 @@ async function switchWorkspace(id) {
   restoreLocalDraft();
   closeSheet();
   await Promise.all([loadBrain(), loadSyncStatus()]);
-    toast("Workspace changed");
+  if (localStorage.getItem("ghostwaiter:activeView") === "notes") {
+    loadNotes();
+  }
+  toast("Workspace changed");
 }
 
 async function createWorkspace(customName = null) {
@@ -772,7 +783,7 @@ function appendMessage(role, content = "", attachments = null) {
         </button>
       </div>
     `;
-    node.querySelector('.msg-content').textContent = content;
+    node.querySelector('.msg-content').innerHTML = linkify(escapeHtml(content));
   }
   
   messages.appendChild(node);
@@ -2280,3 +2291,655 @@ window.bulkRejectProposals = async function() {
     toast(err.message, "error");
   }
 };
+
+/* ─── Notes View Implementation (Google Keep Style) ────────────────── */
+
+// Linkify plain URLs to clickable links
+function linkify(text) {
+  if (!text) return "";
+  const urlPattern = /(\b(https?):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
+  return text.replace(urlPattern, (url) => {
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${url}</a>`;
+  });
+}
+
+// Client-side image compression: JPEG with dynamic canvas resize to stay < 128 KB
+function compressImage(file, maxSizeBytes = 128 * 1024) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let ctx = canvas.getContext("2d");
+        
+        let width = img.width;
+        let height = img.height;
+        
+        const maxDimension = 1200;
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        let quality = 0.9;
+        let dataUrl = canvas.toDataURL("image/jpeg", quality);
+        
+        while ((dataUrl.length * 3) / 4 > maxSizeBytes && quality > 0.1) {
+          quality -= 0.1;
+          dataUrl = canvas.toDataURL("image/jpeg", quality);
+        }
+        
+        let scale = 0.8;
+        while ((dataUrl.length * 3) / 4 > maxSizeBytes && scale > 0.1) {
+          const w = Math.round(width * scale);
+          const h = Math.round(height * scale);
+          canvas.width = w;
+          canvas.height = h;
+          ctx.drawImage(img, 0, 0, w, h);
+          dataUrl = canvas.toDataURL("image/jpeg", quality);
+          scale -= 0.1;
+        }
+        
+        resolve(dataUrl);
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
+  });
+}
+
+// Notes list loader
+async function loadNotes() {
+  if (!state.workspace) return;
+  try {
+    const res = await jsonApi(`/api/notes/list?workspace_id=${state.workspace}&query=${encodeURIComponent(state.notesSearch || '')}&tag=${encodeURIComponent(state.notesActiveTag || '')}`);
+    state.notes = res.items || [];
+    renderNotes();
+  } catch (err) {
+    console.error("Error loading notes", err);
+    toast("Failed to load notes", "error");
+  }
+}
+
+// Render Notes
+function renderNotes() {
+  const pinnedSection = $("#notes-pinned-section");
+  const pinnedContainer = $("#notes-pinned-container");
+  const othersTitle = $("#notes-others-title");
+  const othersContainer = $("#notes-others-container");
+  
+  if (!pinnedSection || !pinnedContainer || !othersTitle || !othersContainer) return;
+  
+  const isGrid = state.notesLayout === "grid";
+  pinnedContainer.className = isGrid ? "notes-grid" : "notes-list";
+  othersContainer.className = isGrid ? "notes-grid" : "notes-list";
+  
+  const pinnedNotes = state.notes.filter(n => n.pinned);
+  const otherNotes = state.notes.filter(n => !n.pinned);
+  
+  if (pinnedNotes.length > 0) {
+    pinnedContainer.innerHTML = pinnedNotes.map(renderNoteCard).join("");
+    pinnedSection.classList.remove("hidden");
+    othersTitle.classList.remove("hidden");
+  } else {
+    pinnedContainer.innerHTML = "";
+    pinnedSection.classList.add("hidden");
+    othersTitle.classList.add("hidden");
+  }
+  
+  othersContainer.innerHTML = otherNotes.map(renderNoteCard).join("");
+  
+  renderTagFilters();
+  renderNotesSelectionStates();
+}
+
+// Render a single Note card
+function renderNoteCard(note) {
+  const isSelected = state.notesSelected.has(note.id);
+  const imageHtml = note.image ? `<div class="note-card-image"><img src="${note.image}" alt="Note image"></div>` : "";
+  
+  const tagsHtml = note.tags && note.tags.length > 0
+    ? `<div class="note-card-tags">` + note.tags.map(t => `<span class="note-card-tag" onclick="event.stopPropagation(); filterNotesByTag('${escapeHtml(t)}')">${escapeHtml(t)}</span>`).join("") + `</div>`
+    : "";
+    
+  return `
+    <article class="note-card ${isSelected ? 'selected' : ''}" data-id="${note.id}" onclick="handleNoteCardClick(event, '${note.id}')">
+      <input type="checkbox" class="note-card-select-checkbox" ${isSelected ? 'checked' : ''} onclick="handleNoteCheckboxChange(event, '${note.id}')">
+      
+      <button class="note-card-pin-btn ${note.pinned ? 'active' : ''}" onclick="event.stopPropagation(); toggleNotePin('${note.id}')" title="${note.pinned ? 'Unpin note' : 'Pin note'}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-.44-1.24l-2.78-3.5A2 2 0 0 1 15 9.26V5a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4.26a2 2 0 0 1-.78 1.24l-2.78 3.5a2 2 0 0 0-.44 1.24Z"/></svg>
+      </button>
+      
+      ${imageHtml}
+      
+      ${note.title ? `<h3 class="note-card-title">${escapeHtml(note.title)}</h3>` : ""}
+      
+      ${note.content ? `<div class="note-card-content">${linkify(escapeHtml(note.content))}</div>` : ""}
+      
+      ${tagsHtml}
+      
+      <div class="note-card-actions">
+        <button class="note-card-action-btn" onclick="event.stopPropagation(); openEditNoteModal('${note.id}')" title="Edit note">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        </button>
+        <button class="note-card-action-btn" onclick="event.stopPropagation(); deleteNoteDirect('${note.id}')" title="Delete note">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>
+      </div>
+    </article>
+  `;
+}
+
+// Notes events initializer
+let creatorPinned = false;
+let creatorImage = null;
+
+function initNotesSystem() {
+  const collapsed = $("#note-creator-collapsed");
+  const expanded = $("#note-creator-expanded");
+  const creator = $("#note-creator");
+  
+  if (!collapsed || !expanded || !creator) return;
+  
+  collapsed.onclick = (e) => {
+    e.stopPropagation();
+    expandNoteCreator();
+  };
+  
+  $("#note-pin-btn").onclick = () => {
+    creatorPinned = !creatorPinned;
+    $("#note-pin-btn").classList.toggle("active", creatorPinned);
+  };
+  
+  $("#note-upload-btn").onclick = () => {
+    $("#note-file-input").click();
+  };
+  
+  $("#note-file-input").onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const compressed = await compressImage(file);
+      creatorImage = compressed;
+      $("#note-preview-img").src = compressed;
+      $("#note-image-preview").classList.remove("hidden");
+    } catch (err) {
+      console.error(err);
+      toast("Image compression failed", "error");
+    }
+  };
+  
+  $("#note-embed-btn").onclick = () => {
+    const url = prompt("Enter image URL:");
+    if (url) {
+      creatorImage = url;
+      $("#note-preview-img").src = url;
+      $("#note-image-preview").classList.remove("hidden");
+    }
+  };
+  
+  $("#note-remove-img-btn").onclick = () => {
+    creatorImage = null;
+    $("#note-image-preview").classList.add("hidden");
+    $("#note-preview-img").src = "";
+    $("#note-file-input").value = "";
+  };
+  
+  $("#note-save-btn").onclick = (e) => {
+    e.stopPropagation();
+    saveCurrentNoteFromCreator();
+  };
+  
+  // Close and save on click outside creator card
+  document.addEventListener("click", (e) => {
+    if (!creator.contains(e.target) && !expanded.classList.contains("hidden")) {
+      saveCurrentNoteFromCreator();
+    }
+  });
+  
+  // Grid/List Layout Toggle
+  const layoutBtn = $("#notes-layout-btn");
+  state.notesLayout = localStorage.getItem("ghostwaiter:notesLayout") || "grid";
+  updateLayoutIcons();
+  
+  layoutBtn.onclick = () => {
+    state.notesLayout = state.notesLayout === "grid" ? "list" : "grid";
+    localStorage.setItem("ghostwaiter:notesLayout", state.notesLayout);
+    updateLayoutIcons();
+    renderNotes();
+  };
+  
+  // Search filter
+  const searchInput = $("#notes-search-input");
+  let searchTimeout = null;
+  searchInput.oninput = () => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      state.notesSearch = searchInput.value;
+      loadNotes();
+    }, 300);
+  };
+  
+  // Bulk buttons
+  $("#notes-select-all-btn").onclick = () => notesSelectAll();
+  $("#notes-deselect-all-btn").onclick = () => notesDeselectAll();
+  $("#notes-bulk-delete-btn").onclick = () => notesBulkDelete();
+}
+
+function expandNoteCreator() {
+  $("#note-creator-collapsed").classList.add("hidden");
+  $("#note-creator-expanded").classList.remove("hidden");
+  $("#note-content-input").focus();
+}
+
+function collapseNoteCreator() {
+  $("#note-creator-collapsed").classList.remove("hidden");
+  $("#note-creator-expanded").classList.add("hidden");
+  
+  $("#note-title-input").value = "";
+  $("#note-content-input").value = "";
+  $("#note-tags-input").value = "";
+  $("#note-file-input").value = "";
+  $("#note-preview-img").src = "";
+  $("#note-image-preview").classList.add("hidden");
+  
+  creatorPinned = false;
+  creatorImage = null;
+  $("#note-pin-btn").classList.remove("active");
+}
+
+async function saveCurrentNoteFromCreator() {
+  const title = $("#note-title-input").value.trim();
+  const content = $("#note-content-input").value.trim();
+  const tagsStr = $("#note-tags-input").value.trim();
+  
+  if (!title && !content && !creatorImage) {
+    collapseNoteCreator();
+    return;
+  }
+  
+  const tags = tagsStr ? tagsStr.split(",").map(t => t.trim()).filter(t => t.length > 0) : [];
+  
+  const payload = {
+    workspace_id: state.workspace,
+    title,
+    content,
+    pinned: creatorPinned,
+    tags,
+    image: creatorImage
+  };
+  
+  try {
+    await jsonApi("/api/notes/save", {
+      method: "POST",
+      body: payload
+    });
+    toast("Note saved", "success");
+    collapseNoteCreator();
+    loadNotes();
+  } catch (err) {
+    console.error(err);
+    toast("Failed to save note", "error");
+  }
+}
+
+// Edit note modal
+window.openEditNoteModal = function(noteId) {
+  const note = state.notes.find(n => n.id === noteId);
+  if (!note) return;
+  
+  let modalImageHtml = "";
+  if (note.image) {
+    modalImageHtml = `
+      <div class="note-creator-image-preview" id="edit-note-image-preview">
+        <img src="${note.image}" alt="Note image">
+        <button type="button" class="remove-img-btn" onclick="removeEditNoteImage()">&times;</button>
+      </div>
+    `;
+  }
+  
+  const modal = document.createElement("div");
+  modal.className = "image-lightbox-modal";
+  modal.id = "edit-note-modal";
+  modal.innerHTML = `
+    <div class="lightbox-backdrop" onclick="closeEditNoteModal(true)"></div>
+    <div class="lightbox-content" style="max-width: 500px; width: 90%; background: var(--bg-surface); padding: 20px; border-radius: var(--radius-lg); border: 1px solid var(--border); box-shadow: var(--shadow-lg); display:flex; flex-direction:column; gap:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <input type="text" id="edit-note-title" class="note-creator-title" placeholder="Title" value="${escapeHtml(note.title || '')}" style="font-size:18px;">
+        <button type="button" id="edit-note-pin" class="note-creator-pin-btn ${note.pinned ? 'active' : ''}" onclick="toggleEditNotePin()" title="Pin note">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-.44-1.24l-2.78-3.5A2 2 0 0 1 15 9.26V5a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4.26a2 2 0 0 1-.78 1.24l-2.78 3.5a2 2 0 0 0-.44 1.24Z"/></svg>
+        </button>
+      </div>
+      
+      <textarea id="edit-note-content" class="note-creator-content" placeholder="Note" rows="6" style="min-height: 120px;">${escapeHtml(note.content || '')}</textarea>
+      
+      ${modalImageHtml}
+      
+      <div class="note-creator-actions" style="margin-top:8px; padding-top:8px;">
+        <div class="note-creator-tools">
+          <button type="button" class="note-creator-tool-btn" onclick="uploadEditNoteImage()" title="Add image file">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+          </button>
+          <button type="button" class="note-creator-tool-btn" onclick="embedEditNoteImage()" title="Add image URL">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          </button>
+          <input type="text" id="edit-note-tags" class="note-creator-tags-input" placeholder="Tags" value="${escapeHtml((note.tags || []).join(', '))}">
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button type="button" onclick="deleteNoteDirect('${note.id}')" class="button compact danger" style="padding: 6px 12px;">Delete</button>
+          <button type="button" onclick="closeEditNoteModal(true)" class="button primary compact" style="padding: 6px 12px;">Close</button>
+        </div>
+      </div>
+      <input type="file" id="edit-note-file-input" class="hidden" accept="image/*" onchange="handleEditNoteImageUpload(event)">
+    </div>
+  `;
+  document.body.appendChild(modal);
+  
+  window.currentEditNote = {
+    id: note.id,
+    pinned: note.pinned,
+    image: note.image
+  };
+};
+
+window.toggleEditNotePin = function() {
+  window.currentEditNote.pinned = !window.currentEditNote.pinned;
+  const pinBtn = $("#edit-note-pin");
+  pinBtn.classList.toggle("active", window.currentEditNote.pinned);
+};
+
+window.removeEditNoteImage = function() {
+  window.currentEditNote.image = null;
+  $("#edit-note-image-preview")?.remove();
+};
+
+window.uploadEditNoteImage = function() {
+  $("#edit-note-file-input").click();
+};
+
+window.handleEditNoteImageUpload = async function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  try {
+    const compressed = await compressImage(file);
+    window.currentEditNote.image = compressed;
+    
+    let preview = $("#edit-note-image-preview");
+    if (!preview) {
+      preview = document.createElement("div");
+      preview.className = "note-creator-image-preview";
+      preview.id = "edit-note-image-preview";
+      preview.innerHTML = `
+        <img src="${compressed}" alt="Note image">
+        <button type="button" class="remove-img-btn" onclick="removeEditNoteImage()">&times;</button>
+      `;
+      const txt = $("#edit-note-content");
+      txt.parentNode.insertBefore(preview, txt.nextSibling);
+    } else {
+      preview.querySelector("img").src = compressed;
+    }
+  } catch (err) {
+    console.error(err);
+    toast("Image upload failed", "error");
+  }
+};
+
+window.embedEditNoteImage = function() {
+  const url = prompt("Enter image URL:");
+  if (url) {
+    window.currentEditNote.image = url;
+    let preview = $("#edit-note-image-preview");
+    if (!preview) {
+      preview = document.createElement("div");
+      preview.className = "note-creator-image-preview";
+      preview.id = "edit-note-image-preview";
+      preview.innerHTML = `
+        <img src="${url}" alt="Note image">
+        <button type="button" class="remove-img-btn" onclick="removeEditNoteImage()">&times;</button>
+      `;
+      const txt = $("#edit-note-content");
+      txt.parentNode.insertBefore(preview, txt.nextSibling);
+    } else {
+      preview.querySelector("img").src = url;
+    }
+  }
+};
+
+window.deleteNoteDirect = async function(noteId) {
+  if (!confirm("Delete this note?")) return;
+  try {
+    await jsonApi("/api/notes/delete", {
+      method: "POST",
+      body: { workspace_id: state.workspace, note_id: noteId }
+    });
+    toast("Note deleted", "success");
+    closeEditNoteModal(false);
+    loadNotes();
+  } catch (err) {
+    console.error(err);
+    toast("Failed to delete note", "error");
+  }
+};
+
+window.closeEditNoteModal = async function(save = true) {
+  const modal = $("#edit-note-modal");
+  if (!modal) return;
+  
+  if (save && window.currentEditNote) {
+    const title = $("#edit-note-title").value.trim();
+    const content = $("#edit-note-content").value.trim();
+    const tagsStr = $("#edit-note-tags").value.trim();
+    const tags = tagsStr ? tagsStr.split(",").map(t => t.trim()).filter(t => t.length > 0) : [];
+    
+    const payload = {
+      workspace_id: state.workspace,
+      id: window.currentEditNote.id,
+      title,
+      content,
+      pinned: window.currentEditNote.pinned,
+      tags,
+      image: window.currentEditNote.image
+    };
+    
+    try {
+      await jsonApi("/api/notes/save", {
+        method: "POST",
+        body: payload
+      });
+      loadNotes();
+    } catch (err) {
+      console.error(err);
+      toast("Failed to save note changes", "error");
+    }
+  }
+  
+  modal.remove();
+  window.currentEditNote = null;
+};
+
+// Toggle note pin
+window.toggleNotePin = async function(noteId) {
+  const note = state.notes.find(n => n.id === noteId);
+  if (!note) return;
+  
+  note.pinned = !note.pinned;
+  note.updated_at = new Date().toISOString();
+  
+  try {
+    await jsonApi("/api/notes/save", {
+      method: "POST",
+      body: {
+        workspace_id: state.workspace,
+        id: note.id,
+        title: note.title,
+        content: note.content,
+        pinned: note.pinned,
+        tags: note.tags,
+        image: note.image
+      }
+    });
+    loadNotes();
+  } catch (err) {
+    console.error(err);
+    toast("Failed to update note pin", "error");
+  }
+};
+
+// Note Selection & Bulk Action handlers
+window.handleNoteCardClick = function(event, noteId) {
+  if (event.target.closest('.note-card-actions') || 
+      event.target.closest('.note-card-select-checkbox') || 
+      event.target.closest('.note-card-pin-btn') ||
+      event.target.tagName === 'A') {
+    return;
+  }
+  
+  if (state.notesSelected.size > 0) {
+    toggleNoteSelection(noteId);
+  } else {
+    openEditNoteModal(noteId);
+  }
+};
+
+window.handleNoteCheckboxChange = function(event, noteId) {
+  event.stopPropagation();
+  if (event.target.checked) {
+    state.notesSelected.add(noteId);
+  } else {
+    state.notesSelected.delete(noteId);
+  }
+  updateBulkActionsBar();
+  renderNotesSelectionStates();
+};
+
+function toggleNoteSelection(noteId) {
+  if (state.notesSelected.has(noteId)) {
+    state.notesSelected.delete(noteId);
+  } else {
+    state.notesSelected.add(noteId);
+  }
+  updateBulkActionsBar();
+  renderNotesSelectionStates();
+}
+
+function updateBulkActionsBar() {
+  const bar = $("#notes-bulk-bar");
+  const info = $("#notes-bulk-info");
+  if (!bar || !info) return;
+  
+  const count = state.notesSelected.size;
+  if (count > 0) {
+    info.textContent = `${count} note${count > 1 ? 's' : ''} selected`;
+    bar.classList.remove("hidden");
+  } else {
+    bar.classList.add("hidden");
+  }
+}
+
+function renderNotesSelectionStates() {
+  state.notes.forEach(note => {
+    const card = $(`.note-card[data-id="${note.id}"]`);
+    const checkbox = card?.querySelector('.note-card-select-checkbox');
+    if (card && checkbox) {
+      const isSelected = state.notesSelected.has(note.id);
+      card.classList.toggle("selected", isSelected);
+      checkbox.checked = isSelected;
+    }
+  });
+}
+
+window.notesSelectAll = function() {
+  state.notes.forEach(note => state.notesSelected.add(note.id));
+  updateBulkActionsBar();
+  renderNotesSelectionStates();
+};
+
+window.notesDeselectAll = function() {
+  state.notesSelected.clear();
+  updateBulkActionsBar();
+  renderNotesSelectionStates();
+};
+
+window.notesBulkDelete = async function() {
+  if (state.notesSelected.size === 0) return;
+  if (!confirm(`Delete ${state.notesSelected.size} selected note(s)?`)) return;
+  
+  try {
+    await jsonApi("/api/notes/delete-bulk", {
+      method: "POST",
+      body: {
+        workspace_id: state.workspace,
+        note_ids: Array.from(state.notesSelected)
+      }
+    });
+    toast("Notes deleted", "success");
+    state.notesSelected.clear();
+    updateBulkActionsBar();
+    loadNotes();
+  } catch (err) {
+    console.error(err);
+    toast("Failed to delete notes", "error");
+  }
+};
+
+// Tag filter chips rendering
+function renderTagFilters() {
+  const filterContainer = $("#notes-tag-filters");
+  if (!filterContainer) return;
+  
+  const allTags = new Set();
+  state.notes.forEach(note => {
+    if (note.tags) {
+      note.tags.forEach(t => allTags.add(t));
+    }
+  });
+  
+  const tagsArray = Array.from(allTags).sort();
+  
+  if (tagsArray.length === 0) {
+    filterContainer.innerHTML = "";
+    return;
+  }
+  
+  let html = `<span style="font-size:12px; color:var(--text-muted);">Tags:</span>`;
+  html += `<button class="chip ${!state.notesActiveTag ? 'active' : ''}" onclick="filterNotesByTag('')" type="button">All</button>`;
+  
+  tagsArray.forEach(tag => {
+    const isActive = state.notesActiveTag === tag;
+    html += `<button class="chip ${isActive ? 'active' : ''}" onclick="filterNotesByTag('${escapeHtml(tag)}')" type="button">${escapeHtml(tag)}</button>`;
+  });
+  
+  filterContainer.innerHTML = html;
+}
+
+window.filterNotesByTag = function(tag) {
+  state.notesActiveTag = tag;
+  loadNotes();
+};
+
+function updateLayoutIcons() {
+  const gridIcon = $("#notes-grid-icon");
+  const listIcon = $("#notes-list-icon");
+  if (!gridIcon || !listIcon) return;
+  
+  if (state.notesLayout === "grid") {
+    gridIcon.classList.remove("hidden");
+    listIcon.classList.add("hidden");
+  } else {
+    gridIcon.classList.add("hidden");
+    listIcon.classList.remove("hidden");
+  }
+}
+

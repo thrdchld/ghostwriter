@@ -37,7 +37,8 @@
       </div>
       <nav class="sidebar-nav" style="flex: 1;">
         <button class="nav-item active" data-view="chat" type="button"><span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span class="nav-label">Chat</span></button>
-        <button class="nav-item" data-view="write" type="button"><span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span><span class="nav-label">Write</span></button>
+        <button class="nav-item" data-view="write" type="button"><span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span><span class="nav-label">Auto Writer</span></button>
+        <button class="nav-item" data-view="notes" type="button"><span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg></span><span class="nav-label">Notes</span></button>
         <button class="nav-item" data-view="brain" type="button"><span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></svg></span><span class="nav-label">Brain</span></button>
         <button class="nav-item" data-view="menu" type="button"><span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span><span class="nav-label">Settings</span></button>
       </nav>
@@ -99,6 +100,7 @@
               </span>
             </span>
             <h1 id="chat-title" class="hidden">New Chat</h1>
+            <p class="section-desc">Diskusi konsep, susun argumen, atau tanya umpan balik dengan AI Coach.</p>
           </div>
           <div style="display: flex; gap: 8px;">
             <button id="chat-list-button" class="icon-button" type="button" aria-label="Chat History">
@@ -167,7 +169,11 @@
 
       <section id="view-write" class="view" aria-label="Write">
         <div class="section-heading">
-          <div><span class="eyebrow">Writing Desk</span><h1>Write</h1></div>
+          <div>
+            <span class="eyebrow">Writing Desk</span>
+            <h1>Auto Writer</h1>
+            <p class="section-desc">Tulis draf, tulis ulang, atau parafrase teks secara otomatis berdasarkan gaya bahasa Anda.</p>
+          </div>
           <button id="draft-list-button" class="text-button" type="button">Drafts</button>
         </div>
         <div class="prompt-card">
@@ -209,9 +215,104 @@
         </div>
       </section>
 
+      <section id="view-notes" class="view" aria-label="Notes">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Quick Notes</span>
+            <h1>Notes</h1>
+            <p class="section-desc">Catat ide-ide cepat, lampirkan gambar, kelola tag, dan pin catatan penting Anda.</p>
+          </div>
+          <div class="notes-view-toggle">
+            <button id="notes-layout-btn" class="icon-button" type="button" title="Toggle Layout (Grid/List)">
+              <svg id="notes-grid-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+              <svg id="notes-list-icon" class="hidden" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="notes-container">
+          <!-- Note Creator Card -->
+          <div class="note-creator" id="note-creator">
+            <div class="note-creator-collapsed" id="note-creator-collapsed">
+              <span>Take a note...</span>
+              <button class="note-creator-tool-btn" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></button>
+            </div>
+            
+            <div class="note-creator-expanded hidden" id="note-creator-expanded">
+              <div class="note-creator-header">
+                <input type="text" id="note-title-input" class="note-creator-title" placeholder="Title">
+                <button type="button" id="note-pin-btn" class="note-creator-pin-btn" title="Pin note">
+                  <!-- Pin Icon (Custom) -->
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-.44-1.24l-2.78-3.5A2 2 0 0 1 15 9.26V5a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4.26a2 2 0 0 1-.78 1.24l-2.78 3.5a2 2 0 0 0-.44 1.24Z"/></svg>
+                </button>
+              </div>
+              
+              <textarea id="note-content-input" class="note-creator-content" placeholder="Take a note..." rows="3"></textarea>
+              
+              <div id="note-image-preview" class="note-creator-image-preview hidden">
+                <img id="note-preview-img" src="" alt="Preview">
+                <button type="button" class="remove-img-btn" id="note-remove-img-btn">&times;</button>
+              </div>
+              
+              <div class="note-creator-actions">
+                <div class="note-creator-tools">
+                  <button type="button" class="note-creator-tool-btn" id="note-upload-btn" title="Add image file">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                  </button>
+                  <button type="button" class="note-creator-tool-btn" id="note-embed-btn" title="Add image URL">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                  </button>
+                  <input type="text" id="note-tags-input" class="note-creator-tags-input" placeholder="Tags (comma separated)">
+                </div>
+                <button type="button" id="note-save-btn" class="button primary compact">Close</button>
+              </div>
+              <input type="file" id="note-file-input" class="hidden" accept="image/*">
+            </div>
+          </div>
+
+          <!-- Notes Toolbar (Search & Filter) -->
+          <div class="notes-toolbar">
+            <div class="notes-search-bar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="notes-search-input" placeholder="Search notes...">
+            </div>
+            
+            <div class="notes-filter-chips" id="notes-tag-filters">
+              <!-- Dynamically populated tags -->
+            </div>
+          </div>
+
+          <!-- Bulk Actions Bar (hidden by default) -->
+          <div id="notes-bulk-bar" class="notes-bulk-bar hidden">
+            <span id="notes-bulk-info" class="notes-bulk-info">0 notes selected</span>
+            <div class="notes-bulk-btns">
+              <button type="button" id="notes-select-all-btn" class="button compact secondary">Select All</button>
+              <button type="button" id="notes-deselect-all-btn" class="button compact secondary">Deselect All</button>
+              <button type="button" id="notes-bulk-delete-btn" class="button compact danger">Delete</button>
+            </div>
+          </div>
+
+          <!-- Pinned Section -->
+          <div id="notes-pinned-section" class="notes-section hidden">
+            <div class="notes-section-title">Pinned</div>
+            <div id="notes-pinned-container" class="notes-grid"></div>
+          </div>
+
+          <!-- Others Section -->
+          <div id="notes-others-section" class="notes-section">
+            <div id="notes-others-title" class="notes-section-title hidden">Others</div>
+            <div id="notes-others-container" class="notes-grid"></div>
+          </div>
+        </div>
+      </section>
+
       <section id="view-brain" class="view" aria-label="Brain">
         <div class="section-heading">
-          <div><span class="eyebrow">Personal Intelligence</span><h1>Brain</h1></div>
+          <div>
+            <span class="eyebrow">Personal Intelligence</span>
+            <h1>Brain</h1>
+            <p class="section-desc">Pusat memori AI Anda. Kelola aturan gaya bahasa, pola berpikir, dan latih AI dari contoh tulisan Anda.</p>
+          </div>
           <button id="refresh-brain" class="icon-button" type="button" aria-label="Refresh">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
           </button>
@@ -271,7 +372,14 @@
       </section>
 
       <section id="view-menu" class="view" aria-label="Settings">
-        <div class="section-heading"><div><span class="eyebrow">System</span><h1>Settings</h1></div></div>        <div class="settings-list">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">System</span>
+            <h1>Settings</h1>
+            <p class="section-desc">Konfigurasi model AI, kelola kunci API, sinkronisasi data dengan GitHub, atau ekspor/impor ZIP data Anda.</p>
+          </div>
+        </div>
+        <div class="settings-list">
           <button id="ai-settings-button" class="setting-row" type="button">
             <span><strong>AI Provider & Model</strong><small>Configure active AI service, API keys, and language models</small></span>
             <span class="setting-icon">

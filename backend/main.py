@@ -115,6 +115,26 @@ class DraftIdRequest(BaseModel):
     draft_id: str
 
 
+class NoteSaveRequest(BaseModel):
+    workspace_id: str
+    id: str | None = None
+    title: str = ""
+    content: str = ""
+    pinned: bool = False
+    tags: list[str] = []
+    image: str | None = None
+
+
+class NoteIdRequest(BaseModel):
+    workspace_id: str
+    note_id: str
+
+
+class NoteBulkDeleteRequest(BaseModel):
+    workspace_id: str
+    note_ids: list[str]
+
+
 class GenerateRequest(BaseModel):
     workspace_id: str
     prompt: str = Field(min_length=1)
@@ -666,6 +686,93 @@ def delete_draft(req: DraftIdRequest) -> dict[str, str]:
         store.delete_entity(workspace_id(req.workspace_id), "drafts", req.draft_id)
     except (FileNotFoundError, ValueError) as exc:
         raise error("Draft not found", 404) from exc
+    return {"status": "success"}
+
+
+@app.post("/api/notes/save", dependencies=[Depends(require_auth)])
+def save_note(req: NoteSaveRequest) -> dict[str, Any]:
+    workspace = workspace_id(req.workspace_id)
+    timestamp = now_iso()
+    note_id = req.id
+    
+    if not note_id:
+        note_id = new_id("note")
+        note = {
+            "schema_version": 1,
+            "id": note_id,
+            "title": req.title,
+            "content": req.content,
+            "pinned": req.pinned,
+            "tags": req.tags,
+            "image": req.image,
+            "created_at": timestamp,
+            "updated_at": timestamp,
+        }
+    else:
+        try:
+            note = store.get_entity(workspace, "notes", note_id)
+        except (FileNotFoundError, ValueError):
+            note = {
+                "schema_version": 1,
+                "id": note_id,
+                "created_at": timestamp,
+            }
+        note.update({
+            "title": req.title,
+            "content": req.content,
+            "pinned": req.pinned,
+            "tags": req.tags,
+            "image": req.image,
+            "updated_at": timestamp,
+        })
+        
+    return store.save_entity(workspace, "notes", note)
+
+
+@app.get("/api/notes/list", dependencies=[Depends(require_auth)])
+def list_notes(
+    workspace_id_query: str | None = Query(default=None, alias="workspace_id"),
+    query: str = "",
+    tag: str = "",
+) -> dict[str, Any]:
+    workspace = workspace_id(workspace_id_query)
+    notes = store.list_entities(workspace, "notes")
+    
+    if query:
+        needle = query.casefold()
+        notes = [
+            item for item in notes 
+            if needle in f"{item.get('title', '')} {item.get('content', '')}".casefold()
+        ]
+        
+    if tag:
+        tag_needle = tag.casefold()
+        notes = [
+            item for item in notes
+            if any(tag_needle == t.casefold() for t in item.get("tags", []))
+        ]
+        
+    return {"items": notes}
+
+
+@app.post("/api/notes/delete", dependencies=[Depends(require_auth)])
+def delete_note(req: NoteIdRequest) -> dict[str, str]:
+    workspace = workspace_id(req.workspace_id)
+    try:
+        store.delete_entity(workspace, "notes", req.note_id)
+    except (FileNotFoundError, ValueError) as exc:
+        raise error("Note not found", 404) from exc
+    return {"status": "success"}
+
+
+@app.post("/api/notes/delete-bulk", dependencies=[Depends(require_auth)])
+def delete_notes_bulk(req: NoteBulkDeleteRequest) -> dict[str, str]:
+    workspace = workspace_id(req.workspace_id)
+    for note_id in req.note_ids:
+        try:
+            store.delete_entity(workspace, "notes", note_id)
+        except (FileNotFoundError, ValueError):
+            pass
     return {"status": "success"}
 
 
