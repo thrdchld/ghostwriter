@@ -1,5 +1,5 @@
 import sys
-file_path = "/data/data/com.termux/files/home/storage/downloads/1.Project/ghostwriter/frontend/assets/app.js"
+file_path = "/data/data/com.termux/files/home/storage/downloads/1.Project/ghostwaiter/frontend/assets/app.js"
 with open(file_path, "r") as f:
     content = f.read()
 

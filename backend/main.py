@@ -1498,7 +1498,7 @@ def export_data() -> StreamingResponse:
         for path in store.root.rglob("*.json"):
             archive.write(path, path.relative_to(store.root))
     buffer.seek(0)
-    filename = f"ghostwriter_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.zip"
+    filename = f"ghostwaiter_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.zip"
     return StreamingResponse(
         buffer,
         media_type="application/zip",

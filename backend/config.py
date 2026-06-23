@@ -17,7 +17,7 @@ def _data_dir() -> Path:
         return Path(configured)
     persistent = Path("/data")
     if persistent.exists() and os.access(persistent, os.W_OK):
-        return persistent / "ghostwriter"
+        return persistent / "ghostwaiter"
     return ROOT_DIR / "data"
 
 class Settings(BaseSettings):

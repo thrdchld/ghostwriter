@@ -15,7 +15,7 @@ bangun_arsitektur() {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ghost Writer</title>
+    <title>Ghost Waiter</title>
     <style>
         :root { 
             --bg: #0d1117; --surf: #161b22; --border: #30363d; 
@@ -1243,8 +1243,8 @@ def push_gh():
     def run_cmd(cmd): return subprocess.run(cmd, shell=True, cwd=BRAIN_DIR, capture_output=True, text=True)
     try:
         run_cmd("git init")
-        run_cmd('git config user.email "bot@ghostwriter.app"')
-        run_cmd('git config user.name "GhostWriter Bot"')
+        run_cmd('git config user.email "bot@ghostwaiter.app"')
+        run_cmd('git config user.name "Ghostwaiter Bot"')
         run_cmd("git remote remove origin")
         run_cmd(f"git remote add origin https://{t}@github.com/{u}/{r}.git")
         run_cmd("git add .")

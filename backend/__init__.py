@@ -1,2 +1,2 @@
-"""GhostWriter backend package."""
+"""Ghostwaiter backend package."""
 

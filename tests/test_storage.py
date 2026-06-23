@@ -479,7 +479,7 @@ class BuildChatContextTests(unittest.TestCase):
 
     def test_context_contains_app_map(self):
         ctx, _ = context_module.build_chat_context("writing", "Bantuan")
-        self.assertIn("PETA APLIKASI GHOSTWRITER", ctx)
+        self.assertIn("PETA APLIKASI GHOSTWAITER", ctx)
 
     def test_context_contains_access_note_when_no_extras(self):
         ctx, _ = context_module.build_chat_context("writing", "Test")

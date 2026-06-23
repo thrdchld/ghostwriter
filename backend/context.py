@@ -154,7 +154,7 @@ def build_chat_context(active_workspace: str, message: str) -> tuple[str, list[s
     workspace_names = ", ".join(
         f"{item['name']} ({item['id']})" for item in store.list_workspaces()
     )
-    app_name = "GHOSTWRITER" if IS_TESTING else "GHOSTWAITER"
+    app_name = "GHOSTWAITER" if IS_TESTING else "GHOSTWAITER"
     app_map = (
         f"PETA APLIKASI {app_name}\n"
         "Kemampuan: chat, draft/editor, Brain learning, references, workspace, konfigurasi provider/model, "

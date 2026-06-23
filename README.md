@@ -1,5 +1,5 @@
 ---
-title: Ghostwriter
+title: Ghostwaiter
 emoji: ✍️
 colorFrom: red
 colorTo: pink
@@ -15,9 +15,9 @@ tags:
   - inference-providers
 ---
 
-# GhostWriter v1.2
+# Ghostwaiter v1.2
 
-GhostWriter adalah web app penulisan personal yang menggabungkan chat, editor tulisan, sistem pembelajaran gaya, dan sinkronisasi GitHub. Aplikasi ini berjalan sebagai satu halaman PWA dengan backend FastAPI yang menyimpan data secara lokal dan dapat dipadukan dengan Hugging Face Space.
+Ghostwaiter adalah web app penulisan personal yang menggabungkan chat, editor tulisan, sistem pembelajaran gaya, dan sinkronisasi GitHub. Aplikasi ini berjalan sebagai satu halaman PWA dengan backend FastAPI yang menyimpan data secara lokal dan dapat dipadukan dengan Hugging Face Space.
 
 > ⚠️ Pengingat sinkronisasi: repo GitHub ini terhubung ke Hugging Face Space dan sebaliknya. Perubahan yang dibuat di GitHub harus dipush ke repo yang sama, lalu Space perlu di-rebuild atau di-pull sesuai alur deployment; perubahan yang dibuat di Space juga perlu disinkronkan kembali ke GitHub agar data tetap konsisten.
 
@@ -92,7 +92,7 @@ data/
 
 ## Menjalankan Server Lokal
 
-Berikut panduan untuk mengaktifkan server GhostWriter di berbagai sistem operasi:
+Berikut panduan untuk mengaktifkan server Ghostwaiter di berbagai sistem operasi:
 
 ### Windows (PowerShell)
 ```powershell

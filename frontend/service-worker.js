@@ -1,4 +1,4 @@
-const CACHE = "ghostwriter-shell-v3";
+const CACHE = "ghostwaiter-shell-v3";
 const SHELL = ["/", "/assets/style.css?v=2", "/assets/app.js?v=2", "/assets/icon.svg", "/manifest.webmanifest"];
 
 self.addEventListener("install", event => {

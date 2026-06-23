@@ -1,3 +1,18 @@
+// Migrate local storage keys from ghostwaiter:* to ghostwaiter:*
+try {
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith("ghostwaiter:")) {
+      const newKey = key.replace("ghostwaiter:", "ghostwaiter:");
+      if (localStorage.getItem(newKey) === null) {
+        localStorage.setItem(newKey, localStorage.getItem(key));
+      }
+    }
+  }
+} catch (e) {
+  console.error("Local storage migration error:", e);
+}
+
 const $ = selector => document.querySelector(selector);
 let chatAbortController = null;
 let generateAbortController = null;
@@ -14,7 +29,7 @@ const state = {
   brainTab: "style",
   saveTimer: null,
   deferredInstall: null,
-  sessionToken: localStorage.getItem("ghostwriter:session") || "",
+  sessionToken: localStorage.getItem("ghostwaiter:session") || "",
   markdownBuffer: "",
   attachments: [],
   autoScrollActive: true,
@@ -26,9 +41,9 @@ async function api(path, options = {}) {
   const config = {...options, credentials: "same-origin", headers: {...(options.headers || {})}};
   if (state.sessionToken) config.headers.Authorization = `Bearer ${state.sessionToken}`;
   
-  const provider = localStorage.getItem("ghostwriter:ai_provider") || "openrouter";
-  const key = localStorage.getItem(`ghostwriter:key_${provider}`) || localStorage.getItem("ghostwriter:openrouter_key") || "";
-  const model = localStorage.getItem("ghostwriter:openrouter_model") || "";
+  const provider = localStorage.getItem("ghostwaiter:ai_provider") || "openrouter";
+  const key = localStorage.getItem(`ghostwaiter:key_${provider}`) || localStorage.getItem("ghostwaiter:openrouter_key") || "";
+  const model = localStorage.getItem("ghostwaiter:openrouter_model") || "";
   config.headers["X-AI-Provider"] = provider;
   if (key) config.headers["X-OpenRouter-Key"] = key;
   if (model) config.headers["X-OpenRouter-Model"] = model;
@@ -65,9 +80,9 @@ function toast(message, type = "info") {
 
 
 function updateModelIndicator() {
-  const provider = localStorage.getItem("ghostwriter:ai_provider") || "openrouter";
-  const key = localStorage.getItem(`ghostwriter:key_${provider}`) || localStorage.getItem("ghostwriter:openrouter_key") || "";
-  const model = localStorage.getItem("ghostwriter:openrouter_model") || "";
+  const provider = localStorage.getItem("ghostwaiter:ai_provider") || "openrouter";
+  const key = localStorage.getItem(`ghostwaiter:key_${provider}`) || localStorage.getItem("ghostwaiter:openrouter_key") || "";
+  const model = localStorage.getItem("ghostwaiter:openrouter_model") || "";
   const btn = $("#model-status");
   if (!btn) return;
   const icon = btn.querySelector("i");
@@ -88,14 +103,14 @@ async function syncAIConfigFromSupabase() {
   try {
     const config = await jsonApi("/api/ai/config");
     if (config && config.provider) {
-      localStorage.setItem("ghostwriter:ai_provider", config.provider);
-      localStorage.setItem("ghostwriter:openrouter_model", config.model || "");
+      localStorage.setItem("ghostwaiter:ai_provider", config.provider);
+      localStorage.setItem("ghostwaiter:openrouter_model", config.model || "");
       if (config.keys) {
         for (const [provider, key] of Object.entries(config.keys)) {
           if (key) {
-            localStorage.setItem(`ghostwriter:key_${provider}`, key);
+            localStorage.setItem(`ghostwaiter:key_${provider}`, key);
             if (provider === "openrouter") {
-              localStorage.setItem("ghostwriter:openrouter_key", key);
+              localStorage.setItem("ghostwaiter:openrouter_key", key);
             }
           }
         }
@@ -128,15 +143,15 @@ async function syncAIConfigFromSupabase() {
 }
 
 async function saveAIConfigToSupabase() {
-  const provider = localStorage.getItem("ghostwriter:ai_provider") || "openrouter";
-  const model = localStorage.getItem("ghostwriter:openrouter_model") || "";
+  const provider = localStorage.getItem("ghostwaiter:ai_provider") || "openrouter";
+  const model = localStorage.getItem("ghostwaiter:openrouter_model") || "";
   const keys = {
-    openrouter: localStorage.getItem("ghostwriter:key_openrouter") || localStorage.getItem("ghostwriter:openrouter_key") || "",
-    google: localStorage.getItem("ghostwriter:key_google") || "",
-    groq: localStorage.getItem("ghostwriter:key_groq") || "",
-    deepseek: localStorage.getItem("ghostwriter:key_deepseek") || "",
-    mistral: localStorage.getItem("ghostwriter:key_mistral") || "",
-    kilo: localStorage.getItem("ghostwriter:key_kilo") || "",
+    openrouter: localStorage.getItem("ghostwaiter:key_openrouter") || localStorage.getItem("ghostwaiter:openrouter_key") || "",
+    google: localStorage.getItem("ghostwaiter:key_google") || "",
+    groq: localStorage.getItem("ghostwaiter:key_groq") || "",
+    deepseek: localStorage.getItem("ghostwaiter:key_deepseek") || "",
+    mistral: localStorage.getItem("ghostwaiter:key_mistral") || "",
+    kilo: localStorage.getItem("ghostwaiter:key_kilo") || "",
   };
   
   try {
@@ -308,7 +323,7 @@ function closeSheet() {
 function showView(view) {
   $$(".view").forEach(node => node.classList.toggle("active", node.id === `view-${view}`));
   $$(".nav-item").forEach(node => node.classList.toggle("active", node.dataset.view === view));
-  localStorage.setItem("ghostwriter:activeView", view);
+  localStorage.setItem("ghostwaiter:activeView", view);
   if (view === "brain") loadBrain();
   if (view === "menu") Promise.all([loadSyncStatus()]);
 }
@@ -322,7 +337,7 @@ async function initialize() {
   $("#app").classList.remove("hidden");
   
   applyTheme();
-  let sidebarState = localStorage.getItem("ghostwriter:sidebar") || "expanded";
+  let sidebarState = localStorage.getItem("ghostwaiter:sidebar") || "expanded";
   if (window.innerWidth <= 780) sidebarState = "minimized";
   
   if (sidebarState === "minimized") {
@@ -335,7 +350,7 @@ async function initialize() {
     $("#sidebar").classList.add("expanded");
   }
 
-  const lastView = localStorage.getItem("ghostwriter:activeView") || "chat";
+  const lastView = localStorage.getItem("ghostwaiter:activeView") || "chat";
   showView(lastView);
   await loadWorkspaces();
   await Promise.all([loadSyncStatus(), syncAIConfigFromSupabase()]);
@@ -344,7 +359,7 @@ async function initialize() {
   updateModelIndicator();
 
   // Automatic sync logic (device baru atau sudah lama tidak dibuka)
-  const lastOpenedStr = localStorage.getItem("ghostwriter:last_opened");
+  const lastOpenedStr = localStorage.getItem("ghostwaiter:last_opened");
   const now = Date.now();
   let shouldAutoSync = false;
 
@@ -358,11 +373,11 @@ async function initialize() {
     }
   }
 
-  localStorage.setItem("ghostwriter:last_opened", now.toString());
+  localStorage.setItem("ghostwaiter:last_opened", now.toString());
 
   // Update last_opened timestamp periodically to keep track of activity
   setInterval(() => {
-    localStorage.setItem("ghostwriter:last_opened", Date.now().toString());
+    localStorage.setItem("ghostwaiter:last_opened", Date.now().toString());
   }, 60000);
 
   if (shouldAutoSync) {
@@ -379,7 +394,7 @@ async function initialize() {
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/service-worker.js");
 }
 
-let theme = localStorage.getItem("ghostwriter:theme") || "system";
+let theme = localStorage.getItem("ghostwaiter:theme") || "system";
 
 function applyTheme() {
   const themeBtnSpan = $("#theme-button span:first-child");
@@ -402,7 +417,7 @@ function applyTheme() {
       themeBtnSpan.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>`;
     }
   }
-  localStorage.setItem("ghostwriter:theme", theme);
+  localStorage.setItem("ghostwaiter:theme", theme);
 }
 
 window.toggleChatTitle = function() {
@@ -432,7 +447,7 @@ function toggleSidebar() {
   sidebar.classList.toggle("minimized");
   sidebar.classList.toggle("expanded");
   const isMinimized = sidebar.classList.contains("minimized");
-  localStorage.setItem("ghostwriter:sidebar", isMinimized ? "minimized" : "expanded");
+  localStorage.setItem("ghostwaiter:sidebar", isMinimized ? "minimized" : "expanded");
   $("#app").classList.toggle("sidebar-minimized", isMinimized);
 }
 
@@ -584,7 +599,7 @@ window.removeAttachment = function(idx) {
 // Draft saving functions
 function saveChatDraft() {
   const text = $("#chat-input")?.value || "";
-  const draftKey = `ghostwriter:chat_draft:${state.currentChat || "new"}`;
+  const draftKey = `ghostwaiter:chat_draft:${state.currentChat || "new"}`;
   localStorage.setItem(draftKey, JSON.stringify({
     text: text,
     attachments: state.attachments
@@ -592,7 +607,7 @@ function saveChatDraft() {
 }
 
 function restoreChatDraft() {
-  const draftKey = `ghostwriter:chat_draft:${state.currentChat || "new"}`;
+  const draftKey = `ghostwaiter:chat_draft:${state.currentChat || "new"}`;
   const saved = localStorage.getItem(draftKey);
   const container = $("#attachment-previews");
   if (!saved) {
@@ -618,7 +633,7 @@ function restoreChatDraft() {
 }
 
 function clearChatDraft() {
-  const draftKey = `ghostwriter:chat_draft:${state.currentChat || "new"}`;
+  const draftKey = `ghostwaiter:chat_draft:${state.currentChat || "new"}`;
   localStorage.removeItem(draftKey);
   state.attachments = [];
   renderAttachmentPreviews();
@@ -1102,7 +1117,7 @@ async function generateWriting() {
 }
 
 function localDraftKey() {
-  return `ghostwriter:draft:${state.workspace}`;
+  return `ghostwaiter:draft:${state.workspace}`;
 }
 
 function saveDraftLocally() {
@@ -1481,7 +1496,7 @@ async function loadSyncStatus() {
 }
 
 function bindEvents() {
-  if ($("#model-status")) $("#model-status").onclick = () => { const provider = localStorage.getItem("ghostwriter:ai_provider") || "openrouter"; const m = localStorage.getItem("ghostwriter:openrouter_model"); const k = localStorage.getItem(`ghostwriter:key_${provider}`) || localStorage.getItem("ghostwriter:openrouter_key"); toast(m && k ? `${provider.toUpperCase()} · ${m}` : "AI not configured — open Settings → AI Provider", m && k ? "success" : "error"); };
+  if ($("#model-status")) $("#model-status").onclick = () => { const provider = localStorage.getItem("ghostwaiter:ai_provider") || "openrouter"; const m = localStorage.getItem("ghostwaiter:openrouter_model"); const k = localStorage.getItem(`ghostwaiter:key_${provider}`) || localStorage.getItem("ghostwaiter:openrouter_key"); toast(m && k ? `${provider.toUpperCase()} · ${m}` : "AI not configured — open Settings → AI Provider", m && k ? "success" : "error"); };
   if ($("#new-chat-button")) $("#new-chat-button").onclick = () => { resetChat(); closeSheet(); };
   document.addEventListener("keydown", (e) => {
     const el = e.target;
@@ -1634,9 +1649,9 @@ function bindEvents() {
   let allModels = [];
 
   // Restore saved state
-  const savedProvider = localStorage.getItem("ghostwriter:ai_provider") || "openrouter";
-  const savedKey      = localStorage.getItem(`ghostwriter:key_${savedProvider}`) || "";
-  const savedModel    = localStorage.getItem("ghostwriter:openrouter_model") || "";
+  const savedProvider = localStorage.getItem("ghostwaiter:ai_provider") || "openrouter";
+  const savedKey      = localStorage.getItem(`ghostwaiter:key_${savedProvider}`) || "";
+  const savedModel    = localStorage.getItem("ghostwaiter:openrouter_model") || "";
   if (providerSelect) providerSelect.value = savedProvider;
   if (apiKeyInput)    apiKeyInput.value    = savedKey;
   if (orModelDisplay) orModelDisplay.textContent = savedModel || "None";
@@ -1685,8 +1700,8 @@ function bindEvents() {
 
   providerSelect?.addEventListener("change", () => {
     const p = providerSelect.value;
-    localStorage.setItem("ghostwriter:ai_provider", p);
-    apiKeyInput.value = localStorage.getItem(`ghostwriter:key_${p}`) || "";
+    localStorage.setItem("ghostwaiter:ai_provider", p);
+    apiKeyInput.value = localStorage.getItem(`ghostwaiter:key_${p}`) || "";
     modelsBrowser?.classList.add("hidden");
     allModels = [];
     updateModelIndicator();
@@ -1695,8 +1710,8 @@ function bindEvents() {
 
   apiKeyInput?.addEventListener("input", () => {
     const p = providerSelect.value;
-    localStorage.setItem(`ghostwriter:key_${p}`, apiKeyInput.value.trim());
-    if (p === "openrouter") localStorage.setItem("ghostwriter:openrouter_key", apiKeyInput.value.trim());
+    localStorage.setItem(`ghostwaiter:key_${p}`, apiKeyInput.value.trim());
+    if (p === "openrouter") localStorage.setItem("ghostwaiter:openrouter_key", apiKeyInput.value.trim());
     updateModelIndicator();
   });
 
@@ -1721,7 +1736,7 @@ function bindEvents() {
       el.style.cursor = "pointer";
       el.innerHTML = `<strong>${model.name}</strong><small>${model.id}</small>`;
       el.onclick = () => {
-        localStorage.setItem("ghostwriter:openrouter_model", model.id);
+        localStorage.setItem("ghostwaiter:openrouter_model", model.id);
         orModelDisplay.textContent = model.id;
         updateModelIndicator();
         toast(`Model selected: ${model.id}`, "success");
@@ -1897,11 +1912,11 @@ function bindEvents() {
   let initialModel = "";
 
   const hasAIChanges = () => {
-    const currentProvider = localStorage.getItem("ghostwriter:ai_provider") || "openrouter";
-    const currentModel = localStorage.getItem("ghostwriter:openrouter_model") || "";
+    const currentProvider = localStorage.getItem("ghostwaiter:ai_provider") || "openrouter";
+    const currentModel = localStorage.getItem("ghostwaiter:openrouter_model") || "";
     if (currentProvider !== initialProvider || currentModel !== initialModel) return true;
     for (const p of ["openrouter", "google", "groq", "deepseek", "mistral", "kilo"]) {
-      const currentKey = localStorage.getItem(`ghostwriter:key_${p}`) || (p === "openrouter" ? localStorage.getItem("ghostwriter:openrouter_key") : "") || "";
+      const currentKey = localStorage.getItem(`ghostwaiter:key_${p}`) || (p === "openrouter" ? localStorage.getItem("ghostwaiter:openrouter_key") : "") || "";
       const initialKey = initialKeys[p] || "";
       if (currentKey !== initialKey) return true;
     }
@@ -1912,11 +1927,11 @@ function bindEvents() {
     if (hasAIChanges()) {
       if (await showConfirm("Discard unsaved AI settings changes?")) {
         // Restore initial values
-        localStorage.setItem("ghostwriter:ai_provider", initialProvider);
-        localStorage.setItem("ghostwriter:openrouter_model", initialModel);
+        localStorage.setItem("ghostwaiter:ai_provider", initialProvider);
+        localStorage.setItem("ghostwaiter:openrouter_model", initialModel);
         for (const [p, val] of Object.entries(initialKeys)) {
-          localStorage.setItem(`ghostwriter:key_${p}`, val);
-          if (p === "openrouter") localStorage.setItem("ghostwriter:openrouter_key", val);
+          localStorage.setItem(`ghostwaiter:key_${p}`, val);
+          if (p === "openrouter") localStorage.setItem("ghostwaiter:openrouter_key", val);
         }
         
         // Update input views
@@ -1948,15 +1963,15 @@ function bindEvents() {
   };
 
   if ($("#ai-settings-button")) $("#ai-settings-button").onclick = () => {
-    initialProvider = localStorage.getItem("ghostwriter:ai_provider") || "openrouter";
-    initialModel = localStorage.getItem("ghostwriter:openrouter_model") || "";
+    initialProvider = localStorage.getItem("ghostwaiter:ai_provider") || "openrouter";
+    initialModel = localStorage.getItem("ghostwaiter:openrouter_model") || "";
     initialKeys = {
-      openrouter: localStorage.getItem("ghostwriter:key_openrouter") || localStorage.getItem("ghostwriter:openrouter_key") || "",
-      google: localStorage.getItem("ghostwriter:key_google") || "",
-      groq: localStorage.getItem("ghostwriter:key_groq") || "",
-      deepseek: localStorage.getItem("ghostwriter:key_deepseek") || "",
-      mistral: localStorage.getItem("ghostwriter:key_mistral") || "",
-      kilo: localStorage.getItem("ghostwriter:key_kilo") || "",
+      openrouter: localStorage.getItem("ghostwaiter:key_openrouter") || localStorage.getItem("ghostwaiter:openrouter_key") || "",
+      google: localStorage.getItem("ghostwaiter:key_google") || "",
+      groq: localStorage.getItem("ghostwaiter:key_groq") || "",
+      deepseek: localStorage.getItem("ghostwaiter:key_deepseek") || "",
+      mistral: localStorage.getItem("ghostwaiter:key_mistral") || "",
+      kilo: localStorage.getItem("ghostwaiter:key_kilo") || "",
     };
     $("#ai-modal").classList.remove("hidden");
   };
@@ -2025,7 +2040,7 @@ function bindEvents() {
       const formData = new FormData();
       formData.append("file", file);
       const headers = {};
-      const token = localStorage.getItem("ghostwriter:session") || state.sessionToken;
+      const token = localStorage.getItem("ghostwaiter:session") || state.sessionToken;
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
       const response = await fetch("/api/import", { method: "POST", headers, body: formData });
@@ -2085,7 +2100,7 @@ function bindEvents() {
 
   $("#logout-button").onclick = async () => {
     await jsonApi("/api/auth/logout", {method: "POST"});
-    localStorage.removeItem("ghostwriter:session");
+    localStorage.removeItem("ghostwaiter:session");
     state.sessionToken = "";
     location.reload();
   };
@@ -2094,7 +2109,7 @@ function bindEvents() {
     try {
       const result = await jsonApi("/api/auth/login", {method: "POST", body: {password: $("#login-password").value}});
       state.sessionToken = result.session_token || "";
-      if (state.sessionToken) localStorage.setItem("ghostwriter:session", state.sessionToken);
+      if (state.sessionToken) localStorage.setItem("ghostwaiter:session", state.sessionToken);
       $("#login-screen").classList.add("hidden");
       $("#app").classList.remove("hidden");
       await loadWorkspaces();
