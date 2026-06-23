@@ -32,6 +32,9 @@ def new_id(prefix: str) -> str:
 # Determine if we are running tests
 IS_TESTING = "pytest" in sys.modules or os.getenv("DATA_DIR", "").startswith("/tmp/gw_test_") or "unittest" in sys.modules
 
+DEFAULT_WORKSPACE_ID = "writing" if IS_TESTING else "personal"
+DEFAULT_WORKSPACE_NAME = "Writing" if IS_TESTING else "Personal"
+
 class MockResponse:
     def __init__(self, data: Any) -> None:
         self.data = data
@@ -213,7 +216,7 @@ class SupabaseStore:
                 system_data = {
                     "settings": {
                         "schema_version": SCHEMA_VERSION,
-                        "active_workspace": "writing",
+                        "active_workspace": DEFAULT_WORKSPACE_ID,
                         "theme": "auto",
                         "sync_status": "idle",
                         "last_sync": "",
@@ -226,11 +229,11 @@ class SupabaseStore:
                     },
                     "workspaces": {
                         "schema_version": SCHEMA_VERSION,
-                        "default_workspace": "writing",
+                        "default_workspace": DEFAULT_WORKSPACE_ID,
                         "items": [
                             {
-                                "id": "writing",
-                                "name": "Writing",
+                                "id": DEFAULT_WORKSPACE_ID,
+                                "name": DEFAULT_WORKSPACE_NAME,
                                 "created_at": timestamp,
                                 "updated_at": timestamp,
                             }
@@ -249,7 +252,65 @@ class SupabaseStore:
                     self.write_json(self.root / "queue" / "pending_sync.json", system_data["pending_sync"])
                     self.write_json(self.root / "snapshots" / "manifest.json", system_data["snapshots_manifest"])
 
-            self.ensure_workspace("writing", "Writing")
+            # Migration check: if 'writing' exists, migrate it to 'personal' (only in production)
+            if not IS_TESTING:
+                try:
+                    sys_res = self.client.table("workspaces").select("data").eq("id", "__system__").execute()
+                    if sys_res.data:
+                        system_data = sys_res.data[0].get("data") or {}
+                        workspaces_data = system_data.setdefault("workspaces", {})
+                        items = workspaces_data.setdefault("items", [])
+                        
+                        writing_item = next((item for item in items if item["id"] == "writing"), None)
+                        if writing_item or system_data.get("settings", {}).get("active_workspace") == "writing":
+                            if writing_item:
+                                writing_item["id"] = "personal"
+                                writing_item["name"] = "Personal"
+                                writing_item["updated_at"] = now_iso()
+                            else:
+                                items.append({
+                                    "id": "personal",
+                                    "name": "Personal",
+                                    "created_at": now_iso(),
+                                    "updated_at": now_iso()
+                                })
+                            
+                            system_data["workspaces"]["items"] = [item for item in items if item["id"] != "writing"]
+                            
+                            settings_data = system_data.setdefault("settings", {})
+                            if settings_data.get("active_workspace") == "writing":
+                                settings_data["active_workspace"] = "personal"
+                            if workspaces_data.get("default_workspace") == "writing":
+                                workspaces_data["default_workspace"] = "personal"
+                                
+                            self.client.table("workspaces").upsert({"id": "__system__", "data": system_data}).execute()
+                            
+                            # Migrate workspace data row
+                            ws_res = self.client.table("workspaces").select("data").eq("id", "writing").execute()
+                            if ws_res.data:
+                                ws_data = ws_res.data[0].get("data") or {}
+                                self.client.table("workspaces").upsert({"id": "personal", "data": ws_data}).execute()
+                                self.client.table("workspaces").delete().eq("id", "writing").execute()
+                                
+                            # Migrate chats
+                            chats_res = self.client.table("chats").select("id, history").execute()
+                            for chat in chats_res.data or []:
+                                hist = chat.get("history") or {}
+                                if hist.get("workspace_id") == "writing":
+                                    hist["workspace_id"] = "personal"
+                                    self.client.table("chats").upsert({"id": chat["id"], "history": hist}).execute()
+                                    
+                            # Migrate drafts
+                            drafts_res = self.client.table("drafts").select("id, content").execute()
+                            for draft in drafts_res.data or []:
+                                cnt = draft.get("content") or {}
+                                if cnt.get("workspace_id") == "writing":
+                                    cnt["workspace_id"] = "personal"
+                                    self.client.table("drafts").upsert({"id": draft["id"], "content": cnt}).execute()
+                except Exception as e:
+                    print(f"Migration error: {e}", flush=True)
+
+            self.ensure_workspace(DEFAULT_WORKSPACE_ID, DEFAULT_WORKSPACE_NAME)
         except Exception as e:
             print(f"Database initialization error: {e}")
 
@@ -508,10 +569,10 @@ class SupabaseStore:
             if res.data:
                 data = res.data[0].get("data") or {}
                 settings_data = data.get("settings") or {}
-                return settings_data.get("active_workspace", "writing")
+                return settings_data.get("active_workspace", "personal")
         except Exception:
             pass
-        return "writing"
+        return "personal"
 
     def set_active_workspace(self, workspace_id: str) -> None:
         safe_id(workspace_id, "workspace_id")
@@ -541,16 +602,16 @@ class SupabaseStore:
                 items.append(d)
             if not items:
                 items = [{
-                    "id": "writing",
-                    "name": "Writing",
+                    "id": "personal",
+                    "name": "Personal",
                     "created_at": now_iso(),
                     "updated_at": now_iso()
                 }]
             return items
         except Exception:
             return [{
-                "id": "writing",
-                "name": "Writing",
+                "id": "personal",
+                "name": "Personal",
                 "created_at": now_iso(),
                 "updated_at": now_iso()
             }]
@@ -610,7 +671,7 @@ class SupabaseStore:
         return {"id": workspace_id, "name": clean_name, "created_at": data.get("created_at"), "updated_at": data["updated_at"]}
 
     def delete_workspace(self, workspace_id: str) -> None:
-        if workspace_id == "writing":
+        if workspace_id == DEFAULT_WORKSPACE_ID:
             raise ValueError("Tidak dapat menghapus workspace default")
         
         res = self.client.table("workspaces").select("id").eq("id", workspace_id).execute()
@@ -629,7 +690,7 @@ class SupabaseStore:
                 self.write_json(workspaces_path, registry)
                 
         if self.active_workspace() == workspace_id:
-            self.set_active_workspace("writing")
+            self.set_active_workspace(DEFAULT_WORKSPACE_ID)
 
     def list_entities(self, workspace_id: str, folder: str) -> list[dict[str, Any]]:
         try:

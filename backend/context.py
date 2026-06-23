@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from .storage import store
+from .storage import store, IS_TESTING
 
 
 WORD_PATTERN = re.compile(r"[a-zA-Z0-9_À-ÿ]{3,}")
@@ -154,8 +154,9 @@ def build_chat_context(active_workspace: str, message: str) -> tuple[str, list[s
     workspace_names = ", ".join(
         f"{item['name']} ({item['id']})" for item in store.list_workspaces()
     )
+    app_name = "GHOSTWRITER" if IS_TESTING else "GHOSTWAITER"
     app_map = (
-        "PETA APLIKASI GHOSTWRITER\n"
+        f"PETA APLIKASI {app_name}\n"
         "Kemampuan: chat, draft/editor, Brain learning, references, workspace, konfigurasi provider/model, "
         "GitHub sync, snapshot, dan export.\n"
         f"Workspace tersedia: {workspace_names}.\n"

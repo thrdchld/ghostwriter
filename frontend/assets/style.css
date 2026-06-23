@@ -370,6 +370,106 @@ button:active { transform: translateY(0); }
 .status-pill.warn i { background: var(--status-warning); }
 .status-pill.error i { background: var(--status-danger); }
 
+/* Elegant Sync Button with animations and status indicators */
+.sync-button {
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  display: flex;
+  position: relative;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.sync-button:hover {
+  background: var(--bg-hover) !important;
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.sync-icon-wrapper {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sync-icon-wrapper svg {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease;
+  opacity: 0;
+  transform: scale(0.5);
+  color: currentColor;
+}
+
+/* Toggle visibility of active icon based on states */
+.sync-button.idle .icon-sync {
+  opacity: 0.85;
+  transform: scale(1);
+}
+
+.sync-button.syncing .icon-sync {
+  opacity: 1;
+  transform: scale(1);
+  animation: spin 1s linear infinite;
+}
+
+.sync-button.success-anim .icon-check {
+  opacity: 1;
+  transform: scale(1.1);
+  color: var(--status-success);
+}
+
+.sync-button.failure-anim .icon-cross {
+  opacity: 1;
+  transform: scale(1.1);
+  color: var(--status-danger);
+}
+
+/* Status dot in the corner */
+.sync-button .status-dot {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  border: 1.5px solid var(--bg-surface);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.sync-button.online .status-dot {
+  background: var(--status-success);
+  box-shadow: 0 0 6px var(--status-success);
+}
+
+.sync-button.offline .status-dot {
+  background: var(--border-strong);
+  box-shadow: none;
+}
+
+.sync-button.syncing .status-dot {
+  background: var(--status-warning);
+  box-shadow: 0 0 6px var(--status-warning);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* ─── Main Content ──────────────────────────────────────────────────────── */
 .main {
   flex: 1;

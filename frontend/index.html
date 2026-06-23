@@ -4,21 +4,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#171412">
-  <meta name="description" content="A personal writing assistant that learns your style and thinking patterns.">
+  <meta name="description" content="Ghostwaiter - A personal AI assistant for note-taking, brainstorming, and digital tasks.">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/style.css?v=2">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/highlight.min.js"></script>
-  <title>GhostWriter</title>
+  <title>Ghostwaiter</title>
 </head>
 <body>
   <div id="login-screen" class="login-screen hidden">
     <form id="login-form" class="login-card">
       <div class="brand-mark">G</div>
-      <h1>GhostWriter</h1>
-      <p>Enter your personal writing space.</p>
+      <h1>Ghostwaiter</h1>
+      <p>Your personal assistant for digital tasks.</p>
       <label for="login-password">Password</label>
       <input id="login-password" type="password" autocomplete="current-password" required>
       <button class="button primary" type="submit">Sign In</button>
@@ -33,7 +33,7 @@
           <svg id="icon-collapse" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><path d="M15 12H9"/><path d="M12 9l-3 3 3 3"/></svg>
           <svg id="icon-expand" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><path d="M9 12h6"/><path d="M12 9l3 3-3 3"/></svg>
         </button>
-        <div class="app-branding" style="font-family: Georgia, serif; font-size: 20px; font-weight: bold; margin-left: 4px; white-space: nowrap;">GhostWriter</div>
+        <div class="app-branding" style="font-family: Georgia, serif; font-size: 20px; font-weight: bold; margin-left: 4px; white-space: nowrap;">Ghostwaiter</div>
       </div>
       <nav class="sidebar-nav" style="flex: 1;">
         <button class="nav-item active" data-view="chat" type="button"><span><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span class="nav-label">Chat</span></button>
@@ -61,10 +61,30 @@
         <div class="status-cluster">
           <button id="workspace-button" class="workspace-button" type="button">
             <span class="eyebrow">Workspace</span>
-            <strong id="workspace-name">Writing</strong>
+            <strong id="workspace-name">Personal</strong>
           </button>
           <button id="model-status" class="status-pill" type="button"><i></i><span>AI</span></button>
-          <button id="sync-status" class="status-pill" type="button"><i></i><span>Local</span></button>
+          <button id="sync-status" class="sync-button idle offline" type="button" title="Sync Status">
+            <div class="sync-icon-wrapper">
+              <!-- Sync Icon -->
+              <svg class="icon-sync" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                <path d="M16 16h5v5"/>
+              </svg>
+              <!-- Checkmark Icon -->
+              <svg class="icon-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              <!-- Cross Icon -->
+              <svg class="icon-cross" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </div>
+            <span class="status-dot"></span>
+          </button>
         </div>
       </header>
 
@@ -224,7 +244,7 @@
         <div id="brain-list" class="insight-list"></div>
         <div id="brain-teach" class="teach-card hidden">
           <label for="raw-writing">Original Writing Sample</label>
-          <textarea id="raw-writing" rows="9" placeholder="Paste your writing here so GhostWriter can learn your style..."></textarea>
+          <textarea id="raw-writing" rows="9" placeholder="Paste your writing here so Ghostwaiter can learn your style..."></textarea>
           <button id="learn-raw-button" class="button primary" type="button">Analyze Writing</button>
         </div>
         <div id="brain-compare" class="teach-card hidden">

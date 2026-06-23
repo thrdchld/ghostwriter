@@ -4,7 +4,7 @@ let generateAbortController = null;
 const $$ = selector => [...document.querySelectorAll(selector)];
 
 const state = {
-  workspace: "writing",
+  workspace: "personal",
   workspaces: [],
   currentChat: null,
   currentDraft: null,
@@ -342,6 +342,40 @@ async function initialize() {
   restoreLocalDraft();
   restoreChatDraft();
   updateModelIndicator();
+
+  // Automatic sync logic (device baru atau sudah lama tidak dibuka)
+  const lastOpenedStr = localStorage.getItem("ghostwriter:last_opened");
+  const now = Date.now();
+  let shouldAutoSync = false;
+
+  if (!lastOpenedStr) {
+    shouldAutoSync = true; // Device baru
+  } else {
+    const lastOpened = parseInt(lastOpenedStr);
+    const oneHour = 60 * 60 * 1000;
+    if (now - lastOpened > oneHour) {
+      shouldAutoSync = true; // Sudah lama tidak dibuka
+    }
+  }
+
+  localStorage.setItem("ghostwriter:last_opened", now.toString());
+
+  // Update last_opened timestamp periodically to keep track of activity
+  setInterval(() => {
+    localStorage.setItem("ghostwriter:last_opened", Date.now().toString());
+  }, 60000);
+
+  if (shouldAutoSync) {
+    setTimeout(() => {
+      performSync(true);
+    }, 1500);
+  }
+
+  // Cek berkala (setiap 5 menit)
+  setInterval(() => {
+    performSync(true);
+  }, 5 * 60 * 1000);
+
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/service-worker.js");
 }
 
@@ -421,7 +455,7 @@ function showWorkspaceSheet() {
       </button>
       <div style="padding-right: 16px; display:flex; gap:8px;">
          <button class="text-button accent" onclick="editWorkspace('${escapeHtml(item.id)}', '${escapeHtml(item.name).replace(/'/g, "\\'")}')" style="font-size:12px; padding:4px 8px;">Edit</button>
-         ${item.id === 'writing' ? '' : `<button class="text-button danger" onclick="deleteWorkspace('${escapeHtml(item.id)}')" style="font-size:12px; padding:4px 8px; color:var(--error);">Delete</button>`}
+         ${item.id === 'personal' || item.id === 'writing' ? '' : `<button class="text-button danger" onclick="deleteWorkspace('${escapeHtml(item.id)}')" style="font-size:12px; padding:4px 8px; color:var(--error);">Delete</button>`}
       </div>
     </div>`).join("");
   openSheet("Pilih workspace", `${items}
@@ -1388,34 +1422,59 @@ async function loadReferences() {
   } catch (_) {}
 }
 
+async function performSync(isAuto = false) {
+  const btn = $("#sync-status");
+  if (!btn) return;
+  if (btn.classList.contains("syncing")) return;
+
+  btn.className = "sync-button syncing";
+  btn.title = "Syncing with GitHub...";
+
+  try {
+    const res = await jsonApi("/api/sync/run", { method: "POST" });
+    btn.className = "sync-button success-anim online";
+    btn.title = res.detail || "Synced successfully";
+    
+    setTimeout(() => {
+      btn.className = "sync-button idle online";
+      btn.title = "Connected to Supabase & Synced";
+    }, 2000);
+    
+    if (res.status === "pulled") {
+      setTimeout(() => {
+        location.reload();
+      }, 1500);
+    }
+  } catch (error) {
+    console.error("Sync error:", error);
+    btn.className = "sync-button failure-anim offline";
+    btn.title = "Sync failed: " + error.message;
+    
+    setTimeout(() => {
+      btn.className = "sync-button idle offline";
+      btn.title = "Offline - Sync failed";
+    }, 2000);
+  }
+}
+
 async function loadSyncStatus() {
   try {
     const data = await jsonApi("/api/sync/status");
     const pill = $("#sync-status");
     if (!pill) return;
-    const span = pill.querySelector("span");
-    const icon = pill.querySelector("i");
+    
+    if (pill.classList.contains("syncing") || pill.classList.contains("success-anim") || pill.classList.contains("failure-anim")) {
+      return;
+    }
     
     if (!data.supabase_configured) {
-      pill.className = "status-pill error";
-      if (span) span.textContent = "Unconfigured";
-      if (icon) { icon.style.background = ""; icon.style.boxShadow = ""; }
+      pill.className = "sync-button idle offline";
       pill.title = "Supabase is not configured — check your environment settings";
     } else if (!data.supabase_connected) {
-      pill.className = "status-pill warn";
-      if (span) span.textContent = "Offline";
-      if (icon) {
-        icon.style.background = "#f97316";
-        icon.style.boxShadow = "0 0 6px #f9731688";
-      }
+      pill.className = "sync-button idle offline";
       pill.title = "Offline — failed to connect to Supabase database";
     } else {
-      pill.className = "status-pill ok";
-      if (span) span.textContent = "Synced";
-      if (icon) {
-        icon.style.background = "#22c55e";
-        icon.style.boxShadow = "0 0 6px #22c55e88";
-      }
+      pill.className = "sync-button idle online";
       pill.title = "Connected to Supabase & Synced";
     }
   } catch (_) {}
@@ -1983,20 +2042,7 @@ function bindEvents() {
   $("#reference-button").onclick = searchReferences;
 
   $("#sync-status").onclick = async () => {
-    toast("Checking connection to Supabase...", "info");
-    await loadSyncStatus();
-    try {
-      const data = await jsonApi("/api/sync/status");
-      if (data.supabase_connected) {
-        toast("Connected to Supabase. All changes are synchronized in real-time.", "success");
-      } else if (data.supabase_configured) {
-        toast("Failed to connect to Supabase. You are currently offline.", "error");
-      } else {
-        toast("Supabase is not configured. Please check your settings/environment files.", "error");
-      }
-    } catch (err) {
-      toast("Error checking Supabase connection: " + err.message, "error");
-    }
+    await performSync();
   };
 
   $("#sync-push-btn").onclick = async () => {
@@ -2150,7 +2196,7 @@ window.deleteWorkspace = async function(id) {
     if (result.status === "success") {
       await loadWorkspaces();
       if (id === state.workspace) {
-        await switchWorkspace("writing");
+        await switchWorkspace("personal");
       }
       toast("Workspace deleted");
     }

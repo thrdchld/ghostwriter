@@ -34,7 +34,7 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="GhostWriter", version="1.0.0", docs_url="/api/docs", lifespan=lifespan)
+app = FastAPI(title="Ghostwaiter", version="1.0.0", docs_url="/api/docs", lifespan=lifespan)
 
 
 class LoginRequest(BaseModel):
@@ -228,7 +228,9 @@ def workspace_id(value: str | None) -> str:
 
 def _brain_system_prompt(workspace: str, purpose: str, context: str = "", model: str = "") -> str:
     base = (
-        "You are GhostWriter, an intelligent personal writing assistant. Your goal is to help the user write, revise, and develop ideas. "
+        "You are Ghostwaiter, an intelligent personal digital assistant and brainstorming companion. "
+        "Your goal is to help the user write, brainstorm, take notes, and assist with any digital tasks. "
+        "You act as an all-in-one assistant for thinking, creating content, and executing digital workflows. "
         "You may respond in any language the user requests. "
         "Do not fabricate facts, do not execute system commands. "
         f"You are currently using AI model: {model}."
@@ -1225,6 +1227,144 @@ async def run_sync_pull() -> dict[str, Any]:
     if not ok:
         raise error(message, 503)
     return {"status": "success", "last_sync": now_iso()}
+
+
+@app.post("/api/sync/run", dependencies=[Depends(require_auth)])
+async def run_sync_combined() -> dict[str, Any]:
+    if not settings.github_token or not settings.github_repo:
+        raise HTTPException(status_code=400, detail="GITHUB_TOKEN or GITHUB_BACKUP_REPO is not configured")
+    owner_repo = settings.github_repo.removeprefix("https://github.com/").removesuffix(".git").strip("/")
+    if owner_repo.count("/") != 1:
+        raise HTTPException(status_code=400, detail="Format GITHUB_BACKUP_REPO harus owner/repo")
+        
+    headers = {
+        "Authorization": f"Bearer {settings.github_token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    
+    system = store.read_json(store.root / "system" / "settings.json", {})
+    last_sync_str = system.get("last_sync", "")
+    
+    # Try fetching backup file metadata from GitHub
+    async with httpx.AsyncClient(timeout=60, headers=headers) as client:
+        branch = "main"
+        ref_url = f"https://api.github.com/repos/{owner_repo}/git/ref/heads/{branch}"
+        ref_res = await client.get(ref_url)
+        if ref_res.status_code == 404:
+            branch = "master"
+            ref_url = f"https://api.github.com/repos/{owner_repo}/git/ref/heads/{branch}"
+            ref_res = await client.get(ref_url)
+            
+        if ref_res.status_code != 200:
+            ok, msg = await _github_push_supabase()
+            if not ok:
+                raise HTTPException(status_code=503, detail=f"GitHub API Error: {ref_res.status_code}. Push fallback failed: {msg}")
+            return {"status": "pushed", "last_sync": now_iso(), "detail": "Repository was empty, pushed local state"}
+            
+        commit_sha = ref_res.json()["object"]["sha"]
+        tree_url = f"https://api.github.com/repos/{owner_repo}/git/trees/{commit_sha}?recursive=1"
+        tree_res = await client.get(tree_url)
+        if tree_res.status_code != 200:
+            raise HTTPException(status_code=502, detail=f"Failed to fetch tree: {tree_res.status_code}")
+            
+        tree = tree_res.json().get("tree", [])
+        backup_item = next((item for item in tree if item["path"] == "supabase_backup.json"), None)
+        
+        if not backup_item:
+            ok, msg = await _github_push_supabase()
+            if not ok:
+                raise HTTPException(status_code=503, detail=msg)
+            return {"status": "pushed", "last_sync": now_iso(), "detail": "No backup file found on GitHub, pushed local state"}
+            
+        blob_res = await client.get(backup_item["url"])
+        if blob_res.status_code != 200:
+            raise HTTPException(status_code=502, detail="Failed to get backup file details from GitHub")
+            
+        blob_data = blob_res.json()
+        content_str = base64.b64decode(blob_data["content"]).decode('utf-8')
+        backup_data = json.loads(content_str)
+        github_timestamp = backup_data.get("timestamp", "")
+
+    def parse_iso(t_str):
+        if not t_str:
+            return datetime.min.replace(tzinfo=UTC)
+        try:
+            normalized = t_str.replace("Z", "+00:00")
+            return datetime.fromisoformat(normalized)
+        except Exception:
+            return datetime.min.replace(tzinfo=UTC)
+
+    git_time = parse_iso(github_timestamp)
+    local_sync_time = parse_iso(last_sync_str)
+    
+    max_local_update = datetime.min.replace(tzinfo=UTC)
+    try:
+        ws_res = store.client.table("workspaces").select("data").execute()
+        for r in ws_res.data or []:
+            up = (r.get("data") or {}).get("updated_at")
+            if up:
+                t = parse_iso(up)
+                if t > max_local_update:
+                    max_local_update = t
+                    
+        chats_res = store.client.table("chats").select("history").execute()
+        for r in chats_res.data or []:
+            up = (r.get("history") or {}).get("updated_at")
+            if up:
+                t = parse_iso(up)
+                if t > max_local_update:
+                    max_local_update = t
+                    
+        drafts_res = store.client.table("drafts").select("content").execute()
+        for r in drafts_res.data or []:
+            up = (r.get("content") or {}).get("updated_at")
+            if up:
+                t = parse_iso(up)
+                if t > max_local_update:
+                    max_local_update = t
+    except Exception:
+        pass
+        
+    if git_time > local_sync_time and git_time > max_local_update:
+        try:
+            for item in backup_data.get("workspaces", []):
+                if item["id"] == "__system__":
+                    existing_res = store.client.table("workspaces").select("data").eq("id", "__system__").execute()
+                    existing_ai_config = None
+                    if existing_res.data:
+                        existing_ai_config = existing_res.data[0].get("data", {}).get("ai_config")
+                    
+                    restored_data = item.get("data") or {}
+                    if existing_ai_config:
+                        restored_data["ai_config"] = existing_ai_config
+                    store.client.table("workspaces").upsert({"id": "__system__", "data": restored_data}).execute()
+                else:
+                    store.client.table("workspaces").upsert({"id": item["id"], "data": item.get("data")}).execute()
+            for item in backup_data.get("chats", []):
+                store.client.table("chats").upsert({"id": item["id"], "history": item.get("history")}).execute()
+            for item in backup_data.get("drafts", []):
+                store.client.table("drafts").upsert({"id": item["id"], "content": item.get("content")}).execute()
+                
+            system.update({"sync_status": "ok", "last_sync": github_timestamp})
+            store.write_json(store.root / "system" / "settings.json", system)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to restore pulled backup: {e}")
+        return {"status": "pulled", "last_sync": github_timestamp, "detail": "Pulled newer backup from GitHub"}
+        
+    elif max_local_update > git_time or max_local_update > local_sync_time:
+        ok, msg = await _github_push_supabase()
+        if not ok:
+            raise HTTPException(status_code=503, detail=msg)
+        return {"status": "pushed", "last_sync": now_iso(), "detail": "Pushed newer local changes to GitHub"}
+        
+    else:
+        try:
+            system.update({"sync_status": "ok", "last_sync": last_sync_str if last_sync_str else github_timestamp})
+            store.write_json(store.root / "system" / "settings.json", system)
+        except Exception:
+            pass
+        return {"status": "synced", "last_sync": last_sync_str if last_sync_str else github_timestamp, "detail": "All data is up to date"}
 
 
 @app.get("/api/sync/status", dependencies=[Depends(require_auth)])
