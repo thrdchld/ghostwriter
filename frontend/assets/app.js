@@ -516,7 +516,7 @@ function showWorkspaceSheet() {
   const items = state.workspaces.map(item => `
     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border);">
       <button class="sheet-option workspace-option" data-id="${escapeHtml(item.id)}" type="button" style="flex:1; border-bottom:none;">
-        <span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.id)}</small></span>
+        <span><strong>${escapeHtml(item.name)}</strong></span>
         <b>${item.id === state.workspace ? "✓" : ""}</b>
       </button>
       <div style="padding-right: 16px; display:flex; gap:8px;">
@@ -801,9 +801,13 @@ function appendMessage(role, content = "", attachments = null) {
   }
   
   if (role === "assistant") {
+    const isThinking = !content;
+    const contentHtml = isThinking 
+      ? `<div class="thinking-dots"><span></span><span></span><span></span></div>` 
+      : renderMarkdown(content);
     node.innerHTML = `
-      <div class="message assistant">
-        <div class="msg-content">${renderMarkdown(content)}</div>
+      <div class="message assistant ${isThinking ? 'thinking' : ''}">
+        <div class="msg-content">${contentHtml}</div>
         ${attachmentsHtml}
       </div>
       <div class="message-actions">
@@ -948,6 +952,10 @@ async function sendChat(event) {
       }
       
       fullResponse += decoder.decode(value, {stream: true});
+      const msgBubble = assistant.querySelector(".message");
+      if (msgBubble && msgBubble.classList.contains("thinking")) {
+        msgBubble.classList.remove("thinking");
+      }
       assistant.querySelector(".msg-content").innerHTML = renderMarkdown(fullResponse);
       
       if (state.autoScrollActive) {
@@ -2792,6 +2800,13 @@ window.openEditNoteModal = function(noteId) {
     pinned: note.pinned,
     image: note.image
   };
+  window.currentEditNoteOriginal = {
+    title: note.title || "",
+    content: note.content || "",
+    tags: [...(note.tags || [])],
+    pinned: note.pinned,
+    image: note.image
+  };
 };
 
 window.toggleEditNotePin = function() {
@@ -2889,25 +2904,35 @@ window.closeEditNoteModal = async function(save = true) {
   if (!modal) return;
   
   let payload = null;
-  if (save && window.currentEditNote) {
+  if (save && window.currentEditNote && window.currentEditNoteOriginal) {
     const title = $("#edit-note-title").value.trim();
     const content = $("#edit-note-content").value.trim();
     const tagsStr = $("#edit-note-tags").value.trim();
     const tags = tagsStr ? tagsStr.split(",").map(t => t.trim()).filter(t => t.length > 0) : [];
     
-    payload = {
-      workspace_id: state.workspace,
-      id: window.currentEditNote.id,
-      title,
-      content,
-      pinned: window.currentEditNote.pinned,
-      tags,
-      image: window.currentEditNote.image
-    };
+    const original = window.currentEditNoteOriginal;
+    const titleChanged = title !== original.title;
+    const contentChanged = content !== original.content;
+    const pinnedChanged = window.currentEditNote.pinned !== original.pinned;
+    const imageChanged = window.currentEditNote.image !== original.image;
+    const tagsChanged = JSON.stringify(tags.sort()) !== JSON.stringify([...original.tags].sort());
+    
+    if (titleChanged || contentChanged || pinnedChanged || imageChanged || tagsChanged) {
+      payload = {
+        workspace_id: state.workspace,
+        id: window.currentEditNote.id,
+        title,
+        content,
+        pinned: window.currentEditNote.pinned,
+        tags,
+        image: window.currentEditNote.image
+      };
+    }
   }
   
   modal.remove();
   window.currentEditNote = null;
+  window.currentEditNoteOriginal = null;
   
   if (payload) {
     const spinner = $("#notes-loading-spinner");
