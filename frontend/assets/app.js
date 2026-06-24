@@ -2615,8 +2615,8 @@ function initNotesSystem() {
     }
   };
   
-  $("#note-embed-btn").onclick = () => {
-    const url = prompt("Enter image URL:");
+  $("#note-embed-btn").onclick = async () => {
+    const url = await showPrompt("Enter image URL:");
     if (url) {
       creatorImage = url;
       $("#note-preview-img").src = url;
@@ -2836,8 +2836,8 @@ window.handleEditNoteImageUpload = async function(event) {
   }
 };
 
-window.embedEditNoteImage = function() {
-  const url = prompt("Enter image URL:");
+window.embedEditNoteImage = async function() {
+  const url = await showPrompt("Enter image URL:");
   if (url) {
     window.currentEditNote.image = url;
     let preview = $("#edit-note-image-preview");
@@ -2858,7 +2858,7 @@ window.embedEditNoteImage = function() {
 };
 
 window.deleteNoteDirect = async function(noteId) {
-  if (!confirm("Delete this note?")) return;
+  if (!(await showConfirm("Delete this note?"))) return;
   
   const modal = $("#edit-note-modal");
   if (modal) {
@@ -3039,7 +3039,7 @@ window.notesDeselectAll = function() {
 
 window.notesBulkDelete = async function() {
   if (state.notesSelected.size === 0) return;
-  if (!confirm(`Delete ${state.notesSelected.size} selected note(s)?`)) return;
+  if (!(await showConfirm(`Delete ${state.notesSelected.size} selected note(s)?`))) return;
   
   try {
     await jsonApi("/api/notes/delete-bulk", {
