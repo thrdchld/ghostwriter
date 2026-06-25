@@ -131,18 +131,73 @@ function updateModelIndicator() {
   const key = localStorage.getItem(`ghostwaiter:key_${provider}`) || localStorage.getItem("ghostwaiter:openrouter_key") || "";
   const model = localStorage.getItem("ghostwaiter:openrouter_model") || "";
   const btn = $("#model-status");
-  if (!btn) return;
-  const icon = btn.querySelector("i");
-  const label = btn.querySelector("span");
+  if (btn) {
+    const icon = btn.querySelector("i");
+    const label = btn.querySelector("span");
+    if (key && model) {
+      if (icon) { icon.style.background = "#22c55e"; icon.style.boxShadow = "0 0 6px #22c55e88"; }
+      const shortModel = model.split("/").pop();
+      if (label) label.textContent = shortModel.length > 16 ? shortModel.slice(0, 14) + "…" : shortModel;
+      btn.title = `${provider}: ${model}`;
+    } else {
+      if (icon) { icon.style.background = ""; icon.style.boxShadow = ""; }
+      if (label) label.textContent = "AI";
+      btn.title = "Click to configure AI in Settings";
+    }
+  }
+
+  // Update AI Settings Modal Display
+  const orModelDisplay = $("#active-model-display");
+  if (orModelDisplay) {
+    orModelDisplay.textContent = model || "None";
+  }
+
+  // Update Settings Row status
+  const settingsBadge = $("#ai-settings-badge");
+  const settingsDesc = $("#ai-settings-desc");
+  const providerNames = {
+    openrouter: "OpenRouter",
+    google: "Google Gemini",
+    groq: "Groq",
+    deepseek: "DeepSeek",
+    mistral: "Mistral",
+    kilo: "Kilo"
+  };
   if (key && model) {
-    if (icon) { icon.style.background = "#22c55e"; icon.style.boxShadow = "0 0 6px #22c55e88"; }
-    const shortModel = model.split("/").pop();
-    if (label) label.textContent = shortModel.length > 16 ? shortModel.slice(0, 14) + "…" : shortModel;
-    btn.title = `${provider}: ${model}`;
+    const providerName = providerNames[provider] || provider;
+    if (settingsBadge) {
+      settingsBadge.textContent = providerName;
+      settingsBadge.style.background = "rgba(34, 197, 94, 0.15)";
+      settingsBadge.style.color = "#22c55e";
+    }
+    if (settingsDesc) {
+      settingsDesc.textContent = `Active model: ${model}`;
+    }
   } else {
-    if (icon) { icon.style.background = ""; icon.style.boxShadow = ""; }
-    if (label) label.textContent = "AI";
-    btn.title = "Click to configure AI in Settings";
+    if (settingsBadge) {
+      settingsBadge.textContent = "Inactive";
+      settingsBadge.style.background = "var(--bg-hover)";
+      settingsBadge.style.color = "var(--text-secondary)";
+    }
+    if (settingsDesc) {
+      settingsDesc.textContent = "Configure active AI service, API keys, and language models";
+    }
+  }
+}
+
+function updateEmptyStateVisibility() {
+  const chatInput = $("#chat-input");
+  const msgs = $("#chat-messages");
+  if (!chatInput || !msgs) return;
+  const isEmpty = chatInput.value.trim() === "";
+  const hasMessages = msgs.querySelector(".message-wrapper");
+  const emptyState = msgs.querySelector(".empty-state");
+  if (!hasMessages && emptyState) {
+    if (!isEmpty) {
+      emptyState.classList.add("fade-out");
+    } else {
+      emptyState.classList.remove("fade-out");
+    }
   }
 }
 
@@ -715,6 +770,7 @@ function restoreChatDraft() {
       container.innerHTML = "";
     }
     autoResizeChatInput();
+    updateEmptyStateVisibility();
     return;
   }
   try {
@@ -723,9 +779,12 @@ function restoreChatDraft() {
     if ($("#chat-input")) $("#chat-input").value = data.text || "";
     renderAttachmentPreviews();
     autoResizeChatInput();
+    updateEmptyStateVisibility();
   } catch (e) {
     state.attachments = [];
     if ($("#chat-input")) $("#chat-input").value = "";
+    autoResizeChatInput();
+    updateEmptyStateVisibility();
   }
 }
 
@@ -1604,15 +1663,7 @@ async function loadSyncStatus() {
 
 function bindEvents() {
   if ($("#model-status")) $("#model-status").onclick = () => {
-    const provider = localStorage.getItem("ghostwaiter:ai_provider") || "openrouter";
-    const m = localStorage.getItem("ghostwaiter:openrouter_model");
-    const k = localStorage.getItem(`ghostwaiter:key_${provider}`) || localStorage.getItem("ghostwaiter:openrouter_key");
-    if (m && k) {
-      toast(`${provider.toUpperCase()} · ${m}`, "success");
-    } else {
-      toast("Please select your AI provider and model first", "error");
-      $("#ai-settings-button")?.click();
-    }
+    $("#ai-settings-button")?.click();
   };
   if ($("#new-chat-button")) $("#new-chat-button").onclick = () => { resetChat(); closeSheet(); };
   document.addEventListener("keydown", (e) => {
@@ -2023,20 +2074,7 @@ function bindEvents() {
     chatInput.addEventListener("input", () => {
       autoResizeChatInput();
       saveChatDraft();
-      
-      // Show/hide empty state
-      const msgs = $("#chat-messages");
-      if (!msgs) return;
-      const isEmpty = chatInput.value.trim() === "";
-      const hasMessages = msgs.querySelector(".message-wrapper");
-      const emptyState = msgs.querySelector(".empty-state");
-      if (!hasMessages) {
-        if (!isEmpty && emptyState) {
-          emptyState.style.display = "none";
-        } else if (isEmpty && emptyState) {
-          emptyState.style.display = "";
-        }
-      }
+      updateEmptyStateVisibility();
     });
   }
 
