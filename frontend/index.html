@@ -524,6 +524,7 @@
               <button type="button" class="dropdown-item" data-value="deepseek">DeepSeek</button>
               <button type="button" class="dropdown-item" data-value="mistral">Mistral</button>
               <button type="button" class="dropdown-item" data-value="kilo">Kilo</button>
+              <button type="button" class="dropdown-item" data-value="custom">Custom</button>
             </div>
           </div>
           <select id="ai-provider-select" class="hidden">
@@ -533,6 +534,7 @@
             <option value="deepseek">DeepSeek</option>
             <option value="mistral">Mistral</option>
             <option value="kilo">Kilo</option>
+            <option value="custom">Custom</option>
           </select>
         </div>
         
@@ -542,6 +544,11 @@
             <input id="ai-api-key" type="password" placeholder="API Key" autocomplete="off" style="flex: 1; min-width: 0;">
             <button id="load-models-btn" class="button primary compact" type="button" style="padding: 0 16px; height: 42px;">Load</button>
           </div>
+        </div>
+
+        <div id="custom-endpoint-container" class="hidden" style="display: flex; flex-direction: column; gap: 6px;">
+          <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">API Endpoint</label>
+          <input id="ai-custom-endpoint" type="text" placeholder="https://api.example.com/v1" autocomplete="off" style="width: 100%;">
         </div>
         
         <div style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">
