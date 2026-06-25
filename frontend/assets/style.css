@@ -129,6 +129,8 @@ body {
   background:
     radial-gradient(circle at top, rgba(255, 255, 255, 0.45), transparent 18%),
     var(--bg-base);
+  user-select: none;
+  -webkit-user-select: none;
 }
 :root[data-theme="dark"] body,
 @media (prefers-color-scheme: dark) {
@@ -2501,5 +2503,135 @@ details.accordion-clean summary::-webkit-details-marker {
 .note-card-action-btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+}
+
+/* ─── Premium UX Polish (Antigravity) ───────────────────────────────────── */
+
+/* Allow text selection only in content areas where copying is intended */
+.message-wrapper,
+.msg-content,
+.note-card,
+.note-creator-title,
+.note-creator-content,
+.draft-content,
+#draft-content,
+textarea,
+input,
+code,
+pre,
+[contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Snappy and smooth transitions for active views */
+.view.active {
+  display: flex;
+  animation: viewFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes viewFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Backdrop Fade In */
+.backdrop:not(.hidden) {
+  animation: fadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Modal scale-up animation */
+.backdrop:not(.hidden) .dialog-card {
+  animation: scaleUp 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes scaleUp {
+  from {
+    transform: scale(0.95) translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Bottom sheet drawer slide animation */
+.sheet:not(.hidden) {
+  animation: slideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* Premium Custom CSS Tooltips (Desktop Only) */
+@media (hover: hover) and (pointer: fine) {
+  [data-tooltip] {
+    position: relative;
+  }
+  [data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    background: rgba(15, 23, 42, 0.95);
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 6px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+  }
+  [data-tooltip]:hover::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+  }
+  
+  /* Tooltip direction: down */
+  [data-tooltip-dir="down"]::after {
+    bottom: auto;
+    top: 125%;
+    transform: translateX(-50%) translateY(-4px);
+  }
+  [data-tooltip-dir="down"]:hover::after {
+    transform: translateX(-50%) translateY(0);
+  }
+  
+  /* Tooltip direction: right */
+  [data-tooltip-dir="right"]::after {
+    bottom: auto;
+    left: 125%;
+    top: 50%;
+    transform: translateY(-50%) translateX(-4px);
+  }
+  [data-tooltip-dir="right"]:hover::after {
+    transform: translateY(-50%) translateX(0);
+  }
+  
+  /* Minimize tooltip noise - only show sidebar tooltips when sidebar is minimized */
+  .sidebar:not(.minimized) .nav-item[data-tooltip]::after {
+    display: none !important;
+  }
 }
 

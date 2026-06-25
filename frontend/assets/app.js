@@ -126,6 +126,18 @@ function toast(message, type = "info") {
 }
 
 
+function setTooltip(el, text) {
+  if (!el) return;
+  const isDesktop = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  if (isDesktop) {
+    el.setAttribute("data-tooltip", text);
+    el.removeAttribute("title");
+  } else {
+    el.removeAttribute("data-tooltip");
+    el.title = text;
+  }
+}
+
 function updateModelIndicator() {
   const provider = localStorage.getItem("ghostwaiter:ai_provider") || "openrouter";
   const key = localStorage.getItem(`ghostwaiter:key_${provider}`) || localStorage.getItem("ghostwaiter:openrouter_key") || "";
@@ -138,11 +150,11 @@ function updateModelIndicator() {
       if (icon) { icon.style.background = "#22c55e"; icon.style.boxShadow = "0 0 6px #22c55e88"; }
       const shortModel = model.split("/").pop();
       if (label) label.textContent = shortModel.length > 16 ? shortModel.slice(0, 14) + "…" : shortModel;
-      btn.title = `${provider}: ${model}`;
+      setTooltip(btn, `${provider}: ${model}`);
     } else {
       if (icon) { icon.style.background = ""; icon.style.boxShadow = ""; }
       if (label) label.textContent = "AI";
-      btn.title = "Click to configure AI in Settings";
+      setTooltip(btn, "Click to configure AI in Settings");
     }
   }
 
@@ -1609,16 +1621,16 @@ async function performSync(isAuto = false) {
   if (btn.classList.contains("syncing")) return;
 
   btn.className = "sync-button syncing";
-  btn.title = "Syncing with GitHub...";
+  setTooltip(btn, "Syncing with GitHub...");
 
   try {
     const res = await jsonApi("/api/sync/run", { method: "POST" });
     btn.className = "sync-button success-anim online";
-    btn.title = res.detail || "Synced successfully";
+    setTooltip(btn, res.detail || "Synced successfully");
     
     setTimeout(() => {
       btn.className = "sync-button idle online";
-      btn.title = "Connected to Supabase & Synced";
+      setTooltip(btn, "Connected to Supabase & Synced");
     }, 2000);
     
     if (res.status === "pulled") {
@@ -1629,11 +1641,11 @@ async function performSync(isAuto = false) {
   } catch (error) {
     console.error("Sync error:", error);
     btn.className = "sync-button failure-anim offline";
-    btn.title = "Sync failed: " + error.message;
+    setTooltip(btn, "Sync failed: " + error.message);
     
     setTimeout(() => {
       btn.className = "sync-button idle offline";
-      btn.title = "Offline - Sync failed";
+      setTooltip(btn, "Offline - Sync failed");
     }, 2000);
   }
 }
@@ -1650,13 +1662,13 @@ async function loadSyncStatus() {
     
     if (!data.supabase_configured) {
       pill.className = "sync-button idle offline";
-      pill.title = "Supabase is not configured — check your environment settings";
+      setTooltip(pill, "Supabase is not configured — check your environment settings");
     } else if (!data.supabase_connected) {
       pill.className = "sync-button idle offline";
-      pill.title = "Offline — failed to connect to Supabase database";
+      setTooltip(pill, "Offline — failed to connect to Supabase database");
     } else {
       pill.className = "sync-button idle online";
-      pill.title = "Connected to Supabase & Synced";
+      setTooltip(pill, "Connected to Supabase & Synced");
     }
   } catch (_) {}
 }
