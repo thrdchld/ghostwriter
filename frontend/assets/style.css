@@ -1621,7 +1621,20 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
   z-index: 50;
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
+  /* Base centering — overridden per-use case (sheet, modal-overlay etc) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+/* modal-overlay just ensures z-index and flex alignment are correct */
+.modal-overlay {
+  align-items: center;
+  justify-content: center;
+  display: flex;
+  z-index: 90;
+}
+
+
 .sheet {
   background: var(--bg-surface);
   border-radius: 22px 22px 0 0;
@@ -1725,7 +1738,6 @@ select:focus, input:focus, textarea:focus { border-color: var(--border-strong); 
 }
 .model-result strong { display: block; font-size: 14px; font-weight: 700; color: var(--text-primary); }
 .model-result small { display: block; overflow-wrap: anywhere; color: var(--text-secondary); margin: 6px 0 12px; font-size: 13px; }
-.modal-overlay { align-items: center; justify-content: center; display: flex; z-index: 90; }
 
 /* ─── Custom Dropdown ───────────────────────────────────────────────────── */
 .custom-dropdown { position: relative; display: inline-block; }
