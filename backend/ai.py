@@ -20,6 +20,41 @@ PROVIDER_ENDPOINTS = {
 }
 
 
+def to_anthropic_payload(model: str, messages: list[dict[str, str]], stream: bool = False, max_tokens: int = 1024) -> dict[str, Any]:
+    system_parts = []
+    anthropic_messages = []
+    
+    for msg in messages:
+        role = msg.get("role", "")
+        content = msg.get("content", "")
+        if role == "system":
+            system_parts.append(content)
+        else:
+            mapped_role = "assistant" if role == "assistant" else "user"
+            
+            # Merge consecutive messages with the same role
+            if anthropic_messages and anthropic_messages[-1]["role"] == mapped_role:
+                anthropic_messages[-1]["content"] += "\n\n" + content
+            else:
+                anthropic_messages.append({"role": mapped_role, "content": content})
+                
+    # Anthropic requires messages to start with "user"
+    if anthropic_messages and anthropic_messages[0]["role"] == "assistant":
+        anthropic_messages.insert(0, {"role": "user", "content": "Hello"})
+        
+    payload = {
+        "model": model,
+        "messages": anthropic_messages,
+        "max_tokens": max_tokens,
+        "stream": stream
+    }
+    
+    if system_parts:
+        payload["system"] = "\n\n".join(system_parts)
+        
+    return payload
+
+
 class AIUnavailable(RuntimeError):
     pass
 
@@ -32,18 +67,46 @@ class AIService:
         if not provider or provider == "default":
             return settings.ai_base_url
         if provider.startswith("custom|"):
-            parts = provider.split("|", 1)
-            custom_url = parts[1].strip()
-            if not custom_url.endswith("/chat/completions"):
-                if custom_url.endswith("/"):
-                    custom_url += "chat/completions"
-                else:
-                    custom_url += "/chat/completions"
+            parts = provider.split("|", 2)
+            if len(parts) >= 3:
+                api_type = parts[1].strip()
+                custom_url = parts[2].strip()
+            else:
+                api_type = "openai"
+                custom_url = parts[1].strip()
+                
+            if api_type == "anthropic":
+                if not custom_url.endswith("/messages"):
+                    if custom_url.endswith("/"):
+                        custom_url += "messages"
+                    else:
+                        custom_url += "/messages"
+            else:
+                if not custom_url.endswith("/chat/completions"):
+                    if custom_url.endswith("/"):
+                        custom_url += "chat/completions"
+                    else:
+                        custom_url += "/chat/completions"
             return custom_url
         return PROVIDER_ENDPOINTS.get(provider, settings.ai_base_url)
 
     def _headers(self, provider: str, api_key: str) -> dict[str, str]:
-        return {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        headers = {"Content-Type": "application/json"}
+        api_type = "openai"
+        if provider.startswith("custom|"):
+            parts = provider.split("|", 2)
+            if len(parts) >= 3:
+                api_type = parts[1].strip()
+                
+        if api_type == "anthropic":
+            if api_key:
+                headers["x-api-key"] = api_key
+                headers["Authorization"] = f"Bearer {api_key}"
+            headers["anthropic-version"] = "2023-06-01"
+        else:
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
+        return headers
 
     async def stream(
         self,
@@ -53,7 +116,6 @@ class AIService:
         max_tokens: int = 900,
         provider: str = "openrouter",
     ) -> AsyncIterator[str]:
-        # Fallback to default 9Router if credentials are not provided
         if not api_key:
             provider = "default"
             api_key = settings.supabase_key or "dummy"
@@ -62,16 +124,24 @@ class AIService:
 
         endpoint = self._endpoint(provider)
         headers = self._headers(provider, api_key)
+        
+        api_type = "openai"
+        if provider.startswith("custom|"):
+            parts = provider.split("|", 2)
+            if len(parts) >= 3:
+                api_type = parts[1].strip()
 
         async with httpx.AsyncClient() as client:
             try:
-                # Use standard OpenAI payload format
-                payload = {
-                    "model": model,
-                    "messages": messages,
-                    "temperature": 0.7,
-                    "stream": True,
-                }
+                if api_type == "anthropic":
+                    payload = to_anthropic_payload(model, messages, stream=True, max_tokens=max_tokens)
+                else:
+                    payload = {
+                        "model": model,
+                        "messages": messages,
+                        "temperature": 0.7,
+                        "stream": True,
+                    }
                 async with client.stream(
                     "POST",
                     endpoint,
@@ -88,10 +158,16 @@ class AIService:
                                 break
                             try:
                                 data = json.loads(data_str)
-                                delta = data.get("choices", [{}])[0].get("delta", {})
-                                text = delta.get("content", "")
-                                if text:
-                                    yield text
+                                if api_type == "anthropic":
+                                    if data.get("type") == "content_block_delta":
+                                        text = data.get("delta", {}).get("text", "")
+                                        if text:
+                                            yield text
+                                else:
+                                    delta = data.get("choices", [{}])[0].get("delta", {})
+                                    text = delta.get("content", "")
+                                    if text:
+                                        yield text
                             except json.JSONDecodeError:
                                 continue
             except AIUnavailable:
@@ -108,7 +184,6 @@ class AIService:
         temperature: float = 0.3,
         provider: str = "openrouter",
     ) -> str:
-        # Fallback to default 9Router if credentials are not provided
         if not api_key:
             provider = "default"
             api_key = settings.supabase_key or "dummy"
@@ -117,16 +192,24 @@ class AIService:
 
         endpoint = self._endpoint(provider)
         headers = self._headers(provider, api_key)
+        
+        api_type = "openai"
+        if provider.startswith("custom|"):
+            parts = provider.split("|", 2)
+            if len(parts) >= 3:
+                api_type = parts[1].strip()
 
         async with httpx.AsyncClient() as client:
             try:
-                # Use standard OpenAI payload format
-                payload = {
-                    "model": model,
-                    "messages": messages,
-                    "temperature": temperature,
-                    "stream": False,
-                }
+                if api_type == "anthropic":
+                    payload = to_anthropic_payload(model, messages, stream=False, max_tokens=max_tokens)
+                else:
+                    payload = {
+                        "model": model,
+                        "messages": messages,
+                        "temperature": temperature,
+                        "stream": False,
+                    }
                 response = await client.post(
                     endpoint,
                     headers=headers,
@@ -135,7 +218,13 @@ class AIService:
                 )
                 response.raise_for_status()
                 data = response.json()
-                return data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                if api_type == "anthropic":
+                    content = data.get("content", [])
+                    if content and isinstance(content, list):
+                        return content[0].get("text", "")
+                    return ""
+                else:
+                    return data.get("choices", [{}])[0].get("message", {}).get("content", "")
             except AIUnavailable:
                 raise
             except Exception as exc:
@@ -268,15 +357,47 @@ class AIService:
             url = "https://api.kilo.ai/v1/models"
             headers = {"Authorization": f"Bearer {api_key}"}
         elif provider.startswith("custom|"):
-            parts = provider.split("|", 1)
-            custom_url = parts[1].strip()
-            if custom_url.endswith("/"):
-                url = f"{custom_url}models"
+            parts = provider.split("|", 2)
+            if len(parts) >= 3:
+                api_type = parts[1].strip()
+                custom_url = parts[2].strip()
             else:
-                url = f"{custom_url}/models"
-            headers = {}
-            if api_key:
-                headers["Authorization"] = f"Bearer {api_key}"
+                api_type = "openai"
+                custom_url = parts[1].strip()
+                
+            if api_type == "anthropic":
+                if custom_url.endswith("/"):
+                    url = f"{custom_url}messages"
+                else:
+                    url = f"{custom_url}/messages"
+                headers = {
+                    "Content-Type": "application/json",
+                    "anthropic-version": "2023-06-01"
+                }
+                if api_key:
+                    headers["x-api-key"] = api_key
+                try:
+                    payload = {
+                        "model": model or "claude-3-5-sonnet-20241022",
+                        "messages": [{"role": "user", "content": "ping"}],
+                        "max_tokens": 1
+                    }
+                    async with httpx.AsyncClient(timeout=10.0) as client:
+                        res = await client.post(url, headers=headers, json=payload)
+                        if res.status_code in (200, 400):
+                            return True, "Connected successfully"
+                        else:
+                            return False, f"HTTP {res.status_code}: {res.text}"
+                except Exception as e:
+                    return False, f"Connection error: {e}"
+            else:
+                if custom_url.endswith("/"):
+                    url = f"{custom_url}models"
+                else:
+                    url = f"{custom_url}/models"
+                headers = {}
+                if api_key:
+                    headers["Authorization"] = f"Bearer {api_key}"
         else:
             return False, f"Unknown provider: {provider}"
 

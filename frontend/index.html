@@ -541,14 +541,14 @@
   </div>
 
   <div id="ai-modal" class="backdrop modal-overlay hidden">
-    <div class="dialog-card" style="max-width: 480px; width: 90%; padding: 24px; display: flex; flex-direction: column; min-height: 480px;">
+    <div class="dialog-card" style="max-width: 480px; width: 90%; padding: 24px; display: flex; flex-direction: column; min-height: 520px;">
       <h3 style="margin: 0 0 4px 0; font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">AI Settings</h3>
       <p style="margin-bottom: 16px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.45;">Configure your provider connection and select active models.</p>
       
       <!-- AI Settings Tabs -->
       <div class="ai-tabs">
         <button class="ai-tab-btn active" data-tab="provider-model" type="button">Provider & Model</button>
-        <button class="ai-tab-btn" data-tab="custom" type="button">Custom</button>
+        <button class="ai-tab-btn" data-tab="custom" type="button">AI Manager</button>
       </div>
 
       <div style="margin-bottom: 20px; flex: 1; display: flex; flex-direction: column; overflow-y: auto;">
@@ -560,25 +560,15 @@
             <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">AI Provider</label>
             <div class="custom-dropdown" id="ai-provider-dropdown" style="width: 100%;">
               <button class="dropdown-trigger" type="button" id="ai-provider-trigger" style="width: 100%;">
-                <span class="selected-text" id="ai-provider-display">OpenRouter</span>
+                <span class="selected-text" id="ai-provider-display">Select Provider...</span>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
               </button>
               <div class="dropdown-menu hidden" id="ai-provider-menu" style="width: 100%; box-sizing: border-box;">
-                <button type="button" class="dropdown-item" data-value="openrouter">OpenRouter</button>
-                <button type="button" class="dropdown-item" data-value="google">Google Gemini</button>
-                <button type="button" class="dropdown-item" data-value="groq">Groq</button>
-                <button type="button" class="dropdown-item" data-value="deepseek">DeepSeek</button>
-                <button type="button" class="dropdown-item" data-value="mistral">Mistral</button>
-                <button type="button" class="dropdown-item" data-value="kilo">Kilo</button>
+                <!-- Populated dynamically -->
               </div>
             </div>
             <select id="ai-provider-select" class="hidden">
-              <option value="openrouter">OpenRouter</option>
-              <option value="google">Google Gemini</option>
-              <option value="groq">Groq</option>
-              <option value="deepseek">DeepSeek</option>
-              <option value="mistral">Mistral</option>
-              <option value="kilo">Kilo</option>
+              <!-- Populated dynamically -->
             </select>
           </div>
 
@@ -599,12 +589,17 @@
           </div>
         </div>
 
-        <!-- ── Tab 2: Custom Providers ── -->
+        <!-- ── Tab 2: Custom Providers (AI Manager) ── -->
         <div id="ai-tab-custom" class="ai-tab-content hidden">
           <!-- Custom AI Manager form -->
           <div style="display: flex; flex-direction: column; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-hover);">
-            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Add Custom Provider</div>
+            <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Add AI Provider</div>
             
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <label style="font-size: 0.7rem; font-weight: 600; color: var(--text-secondary);">Provider Name</label>
+              <input id="ai-manager-name" type="text" placeholder="e.g. My Llama 3" autocomplete="off" style="width: 100%;">
+            </div>
+
             <div style="display: flex; flex-direction: column; gap: 6px;">
               <label style="font-size: 0.7rem; font-weight: 600; color: var(--text-secondary);">Endpoint URL</label>
               <input id="ai-custom-endpoint" type="text" placeholder="https://api.example.com/v1" autocomplete="off" style="width: 100%;">
@@ -612,10 +607,26 @@
 
             <div style="display: flex; flex-direction: column; gap: 6px;">
               <label style="font-size: 0.7rem; font-weight: 600; color: var(--text-secondary);">API Key (Optional)</label>
-              <div style="display: flex; gap: 8px; width: 100%;">
-                <input id="ai-custom-key" type="password" placeholder="API Key" autocomplete="off" style="flex: 1; min-width: 0;">
-                <button id="custom-load-btn" class="button primary compact" type="button" style="padding: 0 16px; height: 42px;">Load</button>
+              <input id="ai-custom-key" type="password" placeholder="API Key" autocomplete="off" style="width: 100%;">
+            </div>
+
+            <!-- API Type Selection -->
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <label style="font-size: 0.7rem; font-weight: 600; color: var(--text-secondary);">API Type</label>
+              <div style="display: flex; gap: 8px;">
+                <label style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-md); cursor: pointer; font-size: 13px; font-weight: 600; background: var(--bg-surface); color: var(--text-secondary); transition: all 0.2s; user-select: none;" id="label-type-openai">
+                  <input type="radio" name="manager-api-type" value="openai" checked style="accent-color: var(--accent); margin: 0; cursor: pointer;">
+                  OpenAI Compatible
+                </label>
+                <label style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-md); cursor: pointer; font-size: 13px; font-weight: 600; background: var(--bg-surface); color: var(--text-secondary); transition: all 0.2s; user-select: none;" id="label-type-anthropic">
+                  <input type="radio" name="manager-api-type" value="anthropic" style="accent-color: var(--accent); margin: 0; cursor: pointer;">
+                  Anthropic Compatible
+                </label>
               </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; margin-top: 4px;">
+              <button id="custom-load-btn" class="button primary compact" type="button" style="padding: 0 20px; height: 42px; width: 100%; justify-content: center;">Load & Verify</button>
             </div>
           </div>
 

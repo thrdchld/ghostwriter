@@ -93,17 +93,21 @@ async function api(path, options = {}) {
   const config = {...options, credentials: "same-origin", headers: {...(options.headers || {})}};
   if (state.sessionToken) config.headers.Authorization = `Bearer ${state.sessionToken}`;
   
-  const provider = localStorage.getItem("ghostwaiter:ai_provider") || "openrouter";
+  const provider = localStorage.getItem("ghostwaiter:ai_provider") || "custom";
   const key = localStorage.getItem(`ghostwaiter:key_${provider}`) || localStorage.getItem("ghostwaiter:openrouter_key") || "";
   const model = localStorage.getItem("ghostwaiter:openrouter_model") || "";
-  if (provider === "custom") {
-    const customEndpoint = localStorage.getItem("ghostwaiter:custom_endpoint") || "";
-    config.headers["X-AI-Provider"] = `custom|${customEndpoint}`;
-  } else {
-    config.headers["X-AI-Provider"] = provider;
+  
+  if (!config.headers["X-AI-Provider"]) {
+    if (provider === "custom") {
+      const customEndpoint = localStorage.getItem("ghostwaiter:custom_endpoint") || "";
+      const customApiType = localStorage.getItem("ghostwaiter:custom_api_type") || "openai";
+      config.headers["X-AI-Provider"] = `custom|${customApiType}|${customEndpoint}`;
+    } else {
+      config.headers["X-AI-Provider"] = provider;
+    }
   }
-  if (key) config.headers["X-OpenRouter-Key"] = key;
-  if (model) config.headers["X-OpenRouter-Model"] = model;
+  if (key && !config.headers["X-OpenRouter-Key"]) config.headers["X-OpenRouter-Key"] = key;
+  if (model && !config.headers["X-OpenRouter-Model"]) config.headers["X-OpenRouter-Model"] = model;
 
   if (config.body && !(config.body instanceof FormData)) {
     config.headers["Content-Type"] = "application/json";
@@ -149,18 +153,31 @@ function setTooltip(el, text) {
 }
 
 function updateModelIndicator() {
-  const provider = localStorage.getItem("ghostwaiter:ai_provider") || "openrouter";
+  const provider = localStorage.getItem("ghostwaiter:ai_provider") || "custom";
   const key = localStorage.getItem(`ghostwaiter:key_${provider}`) || localStorage.getItem("ghostwaiter:openrouter_key") || "";
   const model = localStorage.getItem("ghostwaiter:openrouter_model") || "";
   const btn = $("#model-status");
+  
+  let providerName = "Custom AI";
+  if (provider === "custom") {
+    const activeId = localStorage.getItem("ghostwaiter:custom_active_id") || "";
+    const providers = getCustomProviders();
+    const p = providers.find(x => x.id === activeId);
+    if (p) {
+      providerName = p.name;
+    }
+  }
+
+  const hasKey = (provider === "custom") || key;
+
   if (btn) {
     const icon = btn.querySelector("i");
     const label = btn.querySelector("span");
-    if (key && model) {
+    if (hasKey && model) {
       if (icon) { icon.style.background = "#22c55e"; icon.style.boxShadow = "0 0 6px #22c55e88"; }
       const shortModel = model.split("/").pop();
       if (label) label.textContent = shortModel.length > 16 ? shortModel.slice(0, 14) + "…" : shortModel;
-      setTooltip(btn, `${provider}: ${model}`);
+      setTooltip(btn, `${providerName}: ${model}`);
     } else {
       if (icon) { icon.style.background = ""; icon.style.boxShadow = ""; }
       if (label) label.textContent = "AI";
@@ -177,16 +194,7 @@ function updateModelIndicator() {
   // Update Settings Row status
   const settingsBadge = $("#ai-settings-badge");
   const settingsDesc = $("#ai-settings-desc");
-  const providerNames = {
-    openrouter: "OpenRouter",
-    google: "Google Gemini",
-    groq: "Groq",
-    deepseek: "DeepSeek",
-    mistral: "Mistral",
-    kilo: "Kilo"
-  };
-  if (key && model) {
-    const providerName = providerNames[provider] || provider;
+  if (hasKey && model) {
     if (settingsBadge) {
       settingsBadge.textContent = providerName;
       settingsBadge.style.background = "rgba(34, 197, 94, 0.15)";
@@ -261,11 +269,14 @@ function renderCustomProviders() {
     <div class="${cls}" style="display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px; transition: border-color 0.15s, background 0.15s; cursor: pointer; ${borderStyle}" onclick="selectCustomProvider('${p.id}')">
       <span class="cpanel-item-dot" style="width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; transition: background 0.2s; ${dotStyle}"></span>
       <div class="cpanel-item-info" style="flex: 1; min-width: 0; text-align: left;">
-        <div class="cpanel-item-name" style="font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(p.name)}</div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <div class="cpanel-item-name" style="font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(p.name)}</div>
+          <span style="font-size: 9px; padding: 1px 4px; border-radius: 3px; background: var(--border); color: var(--text-secondary); font-weight: 700; text-transform: uppercase;">${p.type === 'anthropic' ? 'Anthropic' : 'OpenAI'}</span>
+        </div>
         <div class="cpanel-item-url" style="font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px;">${escapeHtml(p.endpoint)}</div>
       </div>
       <div class="cpanel-item-actions" style="display: flex; gap: 4px; flex-shrink: 0;">
-        <button class="cpanel-action-btn" title="Rename" onclick="renameCustomProvider(event, '${p.id}')" type="button" style="background: transparent; border: none; color: var(--text-muted); padding: 5px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s;">
+        <button class="cpanel-action-btn" title="Edit" onclick="editCustomProvider(event, '${p.id}')" type="button" style="background: transparent; border: none; color: var(--text-muted); padding: 5px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
         <button class="cpanel-action-btn danger" title="Delete" onclick="deleteCustomProvider(event, '${p.id}')" type="button" style="background: transparent; border: none; color: var(--text-muted); padding: 5px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s;">
@@ -290,6 +301,81 @@ function renderCustomProviders() {
   }
 }
 
+let editingProviderId = null;
+
+window.editCustomProvider = function(event, id) {
+  if (event) event.stopPropagation();
+  const providers = getCustomProviders();
+  const p = providers.find(x => x.id === id);
+  if (!p) return;
+  
+  editingProviderId = p.id;
+  
+  // Set header to Edit AI Provider
+  const formHeader = $("#ai-tab-custom [style*='text-transform: uppercase']");
+  if (formHeader) formHeader.textContent = `Edit AI Provider: ${p.name}`;
+  
+  if ($("#ai-manager-name")) $("#ai-manager-name").value = p.name;
+  if ($("#ai-custom-endpoint")) $("#ai-custom-endpoint").value = p.endpoint;
+  if ($("#ai-custom-key")) $("#ai-custom-key").value = p.key || "";
+  
+  const apiType = p.type || "openai";
+  const radio = $(`input[name="manager-api-type"][value="${apiType}"]`);
+  if (radio) {
+    radio.checked = true;
+    updateRadioLabels();
+  }
+  
+  const loadBtn = $("#custom-load-btn");
+  if (loadBtn) loadBtn.textContent = "Verify & Update";
+  
+  // Add a cancel edit button if not already present
+  let cancelBtn = $("#custom-edit-cancel-btn");
+  if (!cancelBtn) {
+    cancelBtn = document.createElement("button");
+    cancelBtn.id = "custom-edit-cancel-btn";
+    cancelBtn.className = "button compact secondary";
+    cancelBtn.type = "button";
+    cancelBtn.style.marginRight = "8px";
+    cancelBtn.style.flex = "1";
+    cancelBtn.style.justifyContent = "center";
+    cancelBtn.textContent = "Cancel Edit";
+    cancelBtn.onclick = cancelEditingProvider;
+    
+    // Make wrapper container for actions
+    const btnParent = loadBtn.parentNode;
+    btnParent.style.display = "flex";
+    btnParent.style.gap = "8px";
+    btnParent.insertBefore(cancelBtn, loadBtn);
+    loadBtn.style.flex = "1";
+  }
+};
+
+function cancelEditingProvider() {
+  editingProviderId = null;
+  const formHeader = $("#ai-tab-custom [style*='text-transform: uppercase']");
+  if (formHeader) formHeader.textContent = "Add AI Provider";
+  
+  if ($("#ai-manager-name")) $("#ai-manager-name").value = "";
+  if ($("#ai-custom-endpoint")) $("#ai-custom-endpoint").value = "";
+  if ($("#ai-custom-key")) $("#ai-custom-key").value = "";
+  
+  const radioOpenAI = $('input[name="manager-api-type"][value="openai"]');
+  if (radioOpenAI) {
+    radioOpenAI.checked = true;
+    updateRadioLabels();
+  }
+  
+  const loadBtn = $("#custom-load-btn");
+  if (loadBtn) {
+    loadBtn.textContent = "Load & Verify";
+    loadBtn.style.flex = "";
+  }
+  
+  const cancelBtn = $("#custom-edit-cancel-btn");
+  if (cancelBtn) cancelBtn.remove();
+}
+
 window.selectCustomProvider = function(id) {
   const providers = getCustomProviders();
   const p = providers.find(x => x.id === id);
@@ -298,9 +384,12 @@ window.selectCustomProvider = function(id) {
   localStorage.setItem("ghostwaiter:ai_provider", "custom");
   localStorage.setItem("ghostwaiter:custom_active_id", id);
   localStorage.setItem("ghostwaiter:custom_endpoint", p.endpoint);
+  localStorage.setItem("ghostwaiter:custom_api_type", p.type || "openai");
   localStorage.setItem("ghostwaiter:key_custom", p.key || "");
   
   renderCustomProviders();
+  populateProvidersDropdown();
+  loadModelsForProvider(id);
   updateModelIndicator();
 };
 
@@ -353,20 +442,8 @@ window.selectCustomModel = function(modelId) {
   const activeProvider = providers.find(x => x.id === activeId);
   if (activeProvider) {
     renderCustomModels(activeProvider);
+    renderModels();
   }
-};
-
-window.renameCustomProvider = async function(event, id) {
-  if (event) event.stopPropagation();
-  const providers = getCustomProviders();
-  const p = providers.find(x => x.id === id);
-  if (!p) return;
-  const newName = await showPrompt("Rename provider:", p.name);
-  if (!newName || !newName.trim()) return;
-  p.name = newName.trim();
-  saveCustomProviders(providers);
-  renderCustomProviders();
-  saveAIConfigToSupabase();
 };
 
 window.deleteCustomProvider = async function(event, id) {
@@ -379,12 +456,25 @@ window.deleteCustomProvider = async function(event, id) {
   // Clear active if it was this one
   if (localStorage.getItem("ghostwaiter:custom_active_id") === id) {
     localStorage.removeItem("ghostwaiter:custom_active_id");
-    if (localStorage.getItem("ghostwaiter:ai_provider") === "custom") {
-      localStorage.setItem("ghostwaiter:ai_provider", "openrouter");
+    localStorage.removeItem("ghostwaiter:custom_endpoint");
+    localStorage.removeItem("ghostwaiter:custom_api_type");
+    localStorage.removeItem("ghostwaiter:key_custom");
+    
+    if (providers.length > 0) {
+      selectCustomProvider(providers[0].id);
+    } else {
+      localStorage.setItem("ghostwaiter:ai_provider", "custom");
+      localStorage.removeItem("ghostwaiter:openrouter_model");
+      updateModelIndicator();
     }
   }
   
+  if (editingProviderId === id) {
+    cancelEditingProvider();
+  }
+  
   renderCustomProviders();
+  populateProvidersDropdown();
   saveAIConfigToSupabase();
   toast("Provider deleted");
 };
@@ -396,49 +486,32 @@ async function syncAIConfigFromSupabase() {
       localStorage.setItem("ghostwaiter:ai_provider", config.provider);
       localStorage.setItem("ghostwaiter:openrouter_model", config.model || "");
       if (config.keys) {
-        for (const [provider, key] of Object.entries(config.keys)) {
-          if (key) {
-            if (provider === "custom_endpoint") {
-              localStorage.setItem("ghostwaiter:custom_endpoint", key);
-            } else if (provider === "custom_providers") {
+        for (const [providerKey, val] of Object.entries(config.keys)) {
+          if (val) {
+            if (providerKey === "custom_endpoint") {
+              localStorage.setItem("ghostwaiter:custom_endpoint", val);
+            } else if (providerKey === "custom_providers") {
               // Only restore from DB if local is empty
               const localList = localStorage.getItem("ghostwaiter:custom_providers");
               if (!localList || localList === "[]") {
-                localStorage.setItem("ghostwaiter:custom_providers", key);
+                localStorage.setItem("ghostwaiter:custom_providers", val);
               }
-            } else {
-              localStorage.setItem(`ghostwaiter:key_${provider}`, key);
-              if (provider === "openrouter") {
-                localStorage.setItem("ghostwaiter:openrouter_key", key);
-              }
+            } else if (providerKey === "custom_api_type") {
+              localStorage.setItem("ghostwaiter:custom_api_type", val);
+            } else if (providerKey === "custom") {
+              localStorage.setItem("ghostwaiter:key_custom", val);
             }
           }
         }
       }
       
       const providerSelect = $("#ai-provider-select");
-      const apiKeyInput = $("#ai-api-key");
       const orModelDisplay = $("#active-model-display");
       if (providerSelect) providerSelect.value = config.provider;
-      if (apiKeyInput) apiKeyInput.value = config.keys[config.provider] || "";
       if (orModelDisplay) orModelDisplay.textContent = config.model || "None";
-
-      const customEndpointInput = $("#ai-custom-endpoint");
-      if (customEndpointInput) customEndpointInput.value = config.keys.custom_endpoint || "";
-      toggleCustomEndpointView(config.provider);
       
-      // Update custom select dropdown display
-      const aiProviderDisplay = $("#ai-provider-display");
-      const aiProviderMenu = $("#ai-provider-menu");
-      if (aiProviderDisplay && config.provider) {
-        const activeOption = aiProviderMenu?.querySelector(`.dropdown-item[data-value="${config.provider}"]`);
-        if (activeOption) {
-          aiProviderMenu.querySelectorAll(".dropdown-item").forEach(el => el.classList.remove("active"));
-          activeOption.classList.add("active");
-          aiProviderDisplay.textContent = activeOption.textContent;
-        }
-      }
-      
+      renderCustomProviders();
+      populateProvidersDropdown();
       updateModelIndicator();
     }
   } catch (err) {
@@ -447,18 +520,12 @@ async function syncAIConfigFromSupabase() {
 }
 
 async function saveAIConfigToSupabase() {
-  const provider = localStorage.getItem("ghostwaiter:ai_provider") || "openrouter";
+  const provider = localStorage.getItem("ghostwaiter:ai_provider") || "custom";
   const model = localStorage.getItem("ghostwaiter:openrouter_model") || "";
   const keys = {
-    openrouter: localStorage.getItem("ghostwaiter:key_openrouter") || localStorage.getItem("ghostwaiter:openrouter_key") || "",
-    google: localStorage.getItem("ghostwaiter:key_google") || "",
-    groq: localStorage.getItem("ghostwaiter:key_groq") || "",
-    deepseek: localStorage.getItem("ghostwaiter:key_deepseek") || "",
-    mistral: localStorage.getItem("ghostwaiter:key_mistral") || "",
-    kilo: localStorage.getItem("ghostwaiter:key_kilo") || "",
     custom: localStorage.getItem("ghostwaiter:key_custom") || "",
     custom_endpoint: localStorage.getItem("ghostwaiter:custom_endpoint") || "",
-    // Serialize custom providers list as JSON string so it travels through the existing keys map
+    custom_api_type: localStorage.getItem("ghostwaiter:custom_api_type") || "openai",
     custom_providers: localStorage.getItem("ghostwaiter:custom_providers") || "[]",
   };
   
@@ -2044,59 +2111,6 @@ function bindEvents() {
   }
 
   // ── Multi-Provider AI Settings ───────────────────────────────────────────
-  const PROVIDER_MODEL_URLS = {
-    openrouter: async (key) => {
-      const res = await fetch("https://openrouter.ai/api/v1/models", { headers: { Authorization: `Bearer ${key}` } });
-      const data = await res.json();
-      return (data.data || []).map(m => ({ id: m.id, name: m.name || m.id }));
-    },
-    google: async (key) => {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`);
-      const data = await res.json();
-      return (data.models || [])
-        .filter(m => m.supportedGenerationMethods?.includes("generateContent"))
-        .map(m => ({ id: m.name.replace("models/", ""), name: m.displayName || m.name }));
-    },
-    groq: async (key) => {
-      const res = await fetch("https://api.groq.com/openai/v1/models", { headers: { Authorization: `Bearer ${key}` } });
-      const data = await res.json();
-      return (data.data || []).map(m => ({ id: m.id, name: m.id }));
-    },
-    deepseek: async (key) => {
-      const res = await fetch("https://api.deepseek.com/v1/models", { headers: { Authorization: `Bearer ${key}` } });
-      const data = await res.json();
-      return (data.data || []).map(m => ({ id: m.id, name: m.id }));
-    },
-    mistral: async (key) => {
-      const res = await fetch("https://api.mistral.ai/v1/models", { headers: { Authorization: `Bearer ${key}` } });
-      const data = await res.json();
-      return (data.data || []).map(m => ({ id: m.id, name: m.id }));
-    },
-    kilo: async (key) => {
-      try {
-        const res = await fetch("https://api.kilo.ai/v1/models", { headers: { Authorization: `Bearer ${key}` } });
-        const data = await res.json();
-        return (data.data || []).map(m => ({ id: m.id, name: m.id }));
-      } catch (err) {
-        return [
-          {id: "kilo-1", name: "Kilo 1"}, 
-          {id: "kilo-search", name: "Kilo Search"}, 
-          {id: "kilo-reasoning", name: "Kilo Reasoning"}
-        ];
-      }
-    },
-    custom: async (key) => {
-      const endpoint = $("#ai-custom-endpoint")?.value.trim() || "";
-      if (!endpoint) throw new Error("API Endpoint is empty");
-      const url = endpoint.endsWith("/") ? `${endpoint}models` : `${endpoint}/models`;
-      const headers = {};
-      if (key) headers["Authorization"] = `Bearer ${key}`;
-      const res = await fetch(url, { headers });
-      const data = await res.json();
-      return (data.data || []).map(m => ({ id: m.id, name: m.id }));
-    },
-  };
-
   const providerSelect   = $("#ai-provider-select");
   const orModelDisplay   = $("#active-model-display");
   const modelsList       = $("#models-list");
@@ -2105,85 +2119,122 @@ function bindEvents() {
   let allModels = [];
   let pendingModel = null; // selected but not yet saved
 
-  function getDefaultModels(provider) {
-    const defaults = {
-      openrouter: [
-        { id: "google/gemini-2.5-pro", name: "Gemini 2.5 Pro" },
-        { id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash" },
-        { id: "meta-llama/llama-3.3-70b-instruct", name: "Llama 3.3 70B Instruct" },
-        { id: "deepseek/deepseek-chat", name: "DeepSeek Chat (V3)" },
-        { id: "openai/gpt-4o-mini", name: "GPT-4o Mini" }
-      ],
-      google: [
-        { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
-        { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
-        { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash" },
-        { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro" }
-      ],
-      groq: [
-        { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B Versatile" },
-        { id: "llama3-8b-8192", name: "Llama 3 8B" },
-        { id: "mixtral-8x7b-32768", name: "Mixtral 8x7B" },
-        { id: "gemma2-9b-it", name: "Gemma 2 9B" }
-      ],
-      deepseek: [
-        { id: "deepseek-chat", name: "DeepSeek Chat" },
-        { id: "deepseek-coder", name: "DeepSeek Coder" }
-      ],
-      mistral: [
-        { id: "mistral-large-latest", name: "Mistral Large" },
-        { id: "open-mixtral-8x22b", name: "Mixtral 8x22B" },
-        { id: "mistral-small-latest", name: "Mistral Small" }
-      ],
-      kilo: [
-        { id: "kilo-1", name: "Kilo 1" },
-        { id: "kilo-search", name: "Kilo Search" },
-        { id: "kilo-reasoning", name: "Kilo Reasoning" }
-      ]
-    };
-    return defaults[provider] || [];
-  }
+  // Populate Tab 1 provider selectors dynamically from custom providers list
+  window.populateProvidersDropdown = function() {
+    const pSelect = $("#ai-provider-select");
+    const pMenu = $("#ai-provider-menu");
+    const pDisplay = $("#ai-provider-display");
+    
+    if (!pSelect || !pMenu) return;
+    
+    const providers = getCustomProviders();
+    
+    if (providers.length === 0) {
+      pSelect.innerHTML = `<option value="">No providers configured</option>`;
+      pMenu.innerHTML = `<p style="font-size:13px;opacity:.6;padding:12px;text-align:center;">No providers configured. Please add one in the AI Manager tab.</p>`;
+      if (pDisplay) pDisplay.textContent = "Select Provider...";
+      return;
+    }
+    
+    pSelect.innerHTML = providers.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+    
+    const activeProviderId = localStorage.getItem("ghostwaiter:custom_active_id") || "";
+    pMenu.innerHTML = providers.map(p => {
+      const isActive = p.id === activeProviderId;
+      const activeClass = isActive ? "active" : "";
+      return `<button class="dropdown-item ${activeClass}" data-value="${p.id}" type="button">${escapeHtml(p.name)}</button>`;
+    }).join("");
+    
+    pMenu.querySelectorAll(".dropdown-item").forEach(item => {
+      item.onclick = (e) => {
+        e.stopPropagation();
+        pMenu.querySelectorAll(".dropdown-item").forEach(el => el.classList.remove("active"));
+        item.classList.add("active");
+        if (pDisplay) pDisplay.textContent = item.textContent;
+        pMenu.classList.add("hidden");
+        
+        const providerId = item.dataset.value;
+        if (pSelect) {
+          pSelect.value = providerId;
+          pSelect.dispatchEvent(new Event("change"));
+        }
+      };
+    });
+    
+    const activeProvider = providers.find(p => p.id === activeProviderId);
+    if (activeProvider) {
+      if (pDisplay) pDisplay.textContent = activeProvider.name;
+      if (pSelect) pSelect.value = activeProvider.id;
+    } else {
+      const firstProvider = providers[0];
+      localStorage.setItem("ghostwaiter:custom_active_id", firstProvider.id);
+      localStorage.setItem("ghostwaiter:ai_provider", "custom");
+      localStorage.setItem("ghostwaiter:custom_endpoint", firstProvider.endpoint);
+      localStorage.setItem("ghostwaiter:custom_api_type", firstProvider.type || "openai");
+      localStorage.setItem("ghostwaiter:key_custom", firstProvider.key || "");
+      
+      if (pDisplay) pDisplay.textContent = firstProvider.name;
+      if (pSelect) pSelect.value = firstProvider.id;
+      
+      const firstItem = pMenu.querySelector(`.dropdown-item[data-value="${firstProvider.id}"]`);
+      if (firstItem) firstItem.classList.add("active");
+    }
+  };
 
-  window.loadModelsForProvider = async function(provider) {
+  window.updateRadioLabels = function() {
+    const radioOpenAI = $('input[name="manager-api-type"][value="openai"]');
+    const radioAnthropic = $('input[name="manager-api-type"][value="anthropic"]');
+    const labelOpenAI = $("#label-type-openai");
+    const labelAnthropic = $("#label-type-anthropic");
+    
+    if (!labelOpenAI || !labelAnthropic) return;
+    
+    if (radioOpenAI?.checked) {
+      labelOpenAI.style.borderColor = "var(--accent)";
+      labelOpenAI.style.background = "color-mix(in srgb, var(--accent) 10%, var(--bg-surface))";
+      labelOpenAI.style.color = "var(--text-primary)";
+      
+      labelAnthropic.style.borderColor = "var(--border)";
+      labelAnthropic.style.background = "var(--bg-surface)";
+      labelAnthropic.style.color = "var(--text-secondary)";
+    } else if (radioAnthropic?.checked) {
+      labelAnthropic.style.borderColor = "var(--accent)";
+      labelAnthropic.style.background = "color-mix(in srgb, var(--accent) 10%, var(--bg-surface))";
+      labelAnthropic.style.color = "var(--text-primary)";
+      
+      labelOpenAI.style.borderColor = "var(--border)";
+      labelOpenAI.style.background = "var(--bg-surface)";
+      labelOpenAI.style.color = "var(--text-secondary)";
+    }
+  };
+
+  window.loadModelsForProvider = async function(providerId) {
     if (!modelsList) return;
     
-    // Show spinner
     modelsList.innerHTML = `<div style="display:flex; justify-content:center; padding: 20px;"><div class="spinner" style="width:20px; height:20px; border-width:2px; border-color: var(--accent) transparent var(--accent) transparent; border-style: solid; border-radius: 50%; animation: spin 1s linear infinite;"></div></div>`;
     
-    const key = localStorage.getItem(`ghostwaiter:key_${provider}`) || (provider === "openrouter" ? localStorage.getItem("ghostwaiter:openrouter_key") : "") || "";
-    
-    try {
-      const fetcher = PROVIDER_MODEL_URLS[provider];
-      if (!fetcher) throw new Error("Provider not supported");
-      allModels = await fetcher(key);
+    const providers = getCustomProviders();
+    const p = providers.find(x => x.id === providerId);
+    if (p) {
+      allModels = (p.models || []).map(m => ({ id: m, name: m }));
       renderModels();
-    } catch (err) {
-      console.warn(`Failed to fetch models for ${provider}, using defaults:`, err);
-      allModels = getDefaultModels(provider);
-      renderModels();
+    } else {
+      modelsList.innerHTML = `<p style="font-size:13px;opacity:.6;padding:8px 0;text-align:center;">No models available.</p>`;
     }
   };
 
   // Restore saved state
-  const savedProvider = localStorage.getItem("ghostwaiter:ai_provider") || "openrouter";
-  const savedModel    = localStorage.getItem("ghostwaiter:openrouter_model") || "";
-  if (providerSelect) providerSelect.value = savedProvider;
+  const savedProviderId = localStorage.getItem("ghostwaiter:custom_active_id") || "";
+  populateProvidersDropdown();
+  if (savedProviderId) {
+    loadModelsForProvider(savedProviderId);
+  }
+  const savedModel = localStorage.getItem("ghostwaiter:openrouter_model") || "";
   if (orModelDisplay) orModelDisplay.textContent = savedModel || "None";
   
-  // Update custom select dropdown display
-  const aiProviderDisplay = $("#ai-provider-display");
-  const aiProviderMenu = $("#ai-provider-menu");
-  if (aiProviderDisplay && savedProvider) {
-    const activeOption = aiProviderMenu?.querySelector(`.dropdown-item[data-value="${savedProvider}"]`);
-    if (activeOption) {
-      aiProviderMenu.querySelectorAll(".dropdown-item").forEach(el => el.classList.remove("active"));
-      activeOption.classList.add("active");
-      aiProviderDisplay.textContent = activeOption.textContent;
-    }
-  }
-
   // Custom Dropdown Trigger and Option events
   const aiProviderTrigger = $("#ai-provider-trigger");
+  const aiProviderMenu = $("#ai-provider-menu");
   if (aiProviderTrigger && aiProviderMenu) {
     aiProviderTrigger.onclick = (e) => {
       e.stopPropagation();
@@ -2195,29 +2246,15 @@ function bindEvents() {
         aiProviderMenu.classList.add("hidden");
       }
     });
-
-    aiProviderMenu.querySelectorAll(".dropdown-item").forEach(item => {
-      item.onclick = (e) => {
-        e.stopPropagation();
-        aiProviderMenu.querySelectorAll(".dropdown-item").forEach(el => el.classList.remove("active"));
-        item.classList.add("active");
-        if (aiProviderDisplay) aiProviderDisplay.textContent = item.textContent;
-        aiProviderMenu.classList.add("hidden");
-
-        if (providerSelect) {
-          providerSelect.value = item.dataset.value;
-          providerSelect.dispatchEvent(new Event("change"));
-        }
-      };
-    });
   }
 
   providerSelect?.addEventListener("change", () => {
-    const p = providerSelect.value;
-    localStorage.setItem("ghostwaiter:ai_provider", p);
-    localStorage.removeItem("ghostwaiter:custom_active_id");
-    loadModelsForProvider(p);
-    updateModelIndicator();
+    const providerId = providerSelect.value;
+    const providers = getCustomProviders();
+    const p = providers.find(x => x.id === providerId);
+    if (p) {
+      selectCustomProvider(p.id);
+    }
   });
 
   function renderModels() {
@@ -2267,52 +2304,124 @@ function bindEvents() {
   const customLoadBtn = $("#custom-load-btn");
   if (customLoadBtn) {
     customLoadBtn.onclick = async () => {
+      const name = ($("#ai-manager-name")?.value || "").trim();
       const endpoint = ($("#ai-custom-endpoint")?.value || "").trim();
       const key = ($("#ai-custom-key")?.value || "").trim();
+      const type = ($("input[name='manager-api-type']:checked")?.value || "openai").trim();
+      
+      if (!name) return toast("Enter Provider Name first", "error");
       if (!endpoint) return toast("Enter API Endpoint URL first", "error");
       
       customLoadBtn.disabled = true;
       customLoadBtn.textContent = "Loading...";
       try {
-        const url = endpoint.endsWith("/") ? `${endpoint}models` : `${endpoint}/models`;
-        const headers = {};
-        if (key) headers["Authorization"] = `Bearer ${key}`;
+        // Verify connection via backend to bypass CORS and check credentials
+        const res = await jsonApi("/api/ai/test-connection", {
+          method: "POST",
+          headers: {
+            "X-AI-Provider": `custom|${type}|${endpoint}`,
+            "X-OpenRouter-Key": key
+          }
+        });
         
-        const res = await fetch(url, { headers });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const models = (data.data || []).map(m => m.id);
+        if (!res.connected) {
+          throw new Error(res.message || "Connection failed");
+        }
         
-        const name = await showPrompt("Connection successful! Enter a name for this custom provider:", "My Custom Provider");
-        if (!name || !name.trim()) {
-          toast("Provider not saved: name is required", "error");
-          return;
+        // Fetch models list (OpenAI) or use Claude list (Anthropic)
+        let models = [];
+        if (type === "anthropic") {
+          models = [
+            "claude-3-5-sonnet-latest",
+            "claude-3-5-haiku-latest",
+            "claude-3-opus-latest",
+            "claude-3-5-sonnet-20241022",
+            "claude-3-5-haiku-20241022",
+            "claude-3-opus-20240229",
+            "claude-3-sonnet-20240229",
+            "claude-3-haiku-20240307"
+          ];
+        } else {
+          try {
+            const url = endpoint.endsWith("/") ? `${endpoint}models` : `${endpoint}/models`;
+            const headers = {};
+            if (key) headers["Authorization"] = `Bearer ${key}`;
+            const modelsRes = await fetch(url, { headers });
+            if (modelsRes.ok) {
+               const modelsData = await modelsRes.json();
+               models = (modelsData.data || []).map(m => m.id);
+            }
+          } catch (e) {
+            console.warn("Failed to fetch models directly (CORS or network error), using fallback list", e);
+          }
+          if (models.length === 0) {
+            models = [
+              "gpt-4o",
+              "gpt-4o-mini",
+              "o1-preview",
+              "o1-mini",
+              "claude-3-5-sonnet",
+              "meta-llama/llama-3-8b-instruct",
+              "meta-llama/llama-3.3-70b-instruct"
+            ];
+          }
         }
         
         const providers = getCustomProviders();
-        const id = `cp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-        providers.push({
-          id,
-          name: name.trim(),
-          endpoint: endpoint,
-          key: key,
-          models: models
-        });
+        
+        if (editingProviderId) {
+          const p = providers.find(x => x.id === editingProviderId);
+          if (p) {
+            p.name = name;
+            p.endpoint = endpoint;
+            p.key = key;
+            p.type = type;
+            p.models = models;
+            toast(`Successfully updated provider: ${name}`, "success");
+          }
+          cancelEditingProvider();
+        } else {
+          const id = `cp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+          providers.push({
+            id,
+            name: name,
+            endpoint: endpoint,
+            key: key,
+            type: type,
+            models: models
+          });
+          toast(`Successfully verified and added: ${name}`, "success");
+          
+          // Clear add form inputs
+          if ($("#ai-manager-name")) $("#ai-manager-name").value = "";
+          if ($("#ai-custom-endpoint")) $("#ai-custom-endpoint").value = "";
+          if ($("#ai-custom-key")) $("#ai-custom-key").value = "";
+          
+          // Auto-select newly added provider
+          localStorage.setItem("ghostwaiter:custom_active_id", id);
+          localStorage.setItem("ghostwaiter:ai_provider", "custom");
+          localStorage.setItem("ghostwaiter:custom_endpoint", endpoint);
+          localStorage.setItem("ghostwaiter:custom_api_type", type);
+          localStorage.setItem("ghostwaiter:key_custom", key);
+        }
+        
         saveCustomProviders(providers);
-        
-        if ($("#ai-custom-endpoint")) $("#ai-custom-endpoint").value = "";
-        if ($("#ai-custom-key")) $("#ai-custom-key").value = "";
-        
         renderCustomProviders();
-        selectCustomProvider(id);
-        saveAIConfigToSupabase();
+        populateProvidersDropdown();
         
-        toast(`Successfully verified and added: ${name}`, "success");
+        // Load models for the selected provider
+        const activeId = localStorage.getItem("ghostwaiter:custom_active_id");
+        if (activeId) {
+          loadModelsForProvider(activeId);
+        }
+        
+        updateModelIndicator();
+        saveAIConfigToSupabase();
       } catch (err) {
         toast(`Verification failed: ${err.message}`, "error");
       } finally {
         customLoadBtn.disabled = false;
-        customLoadBtn.textContent = "Load";
+        customLoadBtn.textContent = editingProviderId ? "Verify & Update" : "Load & Verify";
       }
     };
   }
@@ -2463,19 +2572,29 @@ function bindEvents() {
   let initialCustomActiveId = "";
 
   const hasAIChanges = () => {
-    const currentProvider = localStorage.getItem("ghostwaiter:ai_provider") || "openrouter";
+    const currentProvider = localStorage.getItem("ghostwaiter:ai_provider") || "custom";
     const currentModel = localStorage.getItem("ghostwaiter:openrouter_model") || "";
     if (currentProvider !== initialProvider || currentModel !== initialModel) return true;
-    for (const p of ["openrouter", "google", "groq", "deepseek", "mistral", "kilo", "custom"]) {
-      const currentKey = localStorage.getItem(`ghostwaiter:key_${p}`) || (p === "openrouter" ? localStorage.getItem("ghostwaiter:openrouter_key") : "") || "";
-      const initialKey = initialKeys[p] || "";
-      if (currentKey !== initialKey) return true;
-    }
+    
+    const currentKey = localStorage.getItem("ghostwaiter:key_custom") || "";
+    const initialKey = initialKeys.custom || "";
+    if (currentKey !== initialKey) return true;
+    
     const currentEndpoint = localStorage.getItem("ghostwaiter:custom_endpoint") || "";
     const initialEndpoint = initialKeys.custom_endpoint || "";
     if (currentEndpoint !== initialEndpoint) return true;
+    
     const currentCustomActiveId = localStorage.getItem("ghostwaiter:custom_active_id") || "";
     if (currentCustomActiveId !== initialCustomActiveId) return true;
+    
+    const currentApiType = localStorage.getItem("ghostwaiter:custom_api_type") || "openai";
+    const initialApiType = initialKeys.custom_api_type || "openai";
+    if (currentApiType !== initialApiType) return true;
+    
+    const currentProvidersStr = localStorage.getItem("ghostwaiter:custom_providers") || "[]";
+    const initialProvidersStr = initialKeys.custom_providers || "[]";
+    if (currentProvidersStr !== initialProvidersStr) return true;
+    
     return false;
   };
 
@@ -2490,38 +2609,27 @@ function bindEvents() {
         } else {
           localStorage.removeItem("ghostwaiter:custom_active_id");
         }
+        
         for (const [p, val] of Object.entries(initialKeys)) {
           if (p === "custom_endpoint") {
             localStorage.setItem("ghostwaiter:custom_endpoint", val);
+          } else if (p === "custom_providers") {
+            localStorage.setItem("ghostwaiter:custom_providers", val);
+          } else if (p === "custom_api_type") {
+            localStorage.setItem("ghostwaiter:custom_api_type", val);
           } else {
             localStorage.setItem(`ghostwaiter:key_${p}`, val);
-            if (p === "openrouter") localStorage.setItem("ghostwaiter:openrouter_key", val);
           }
         }
         
         // Update input views
         const providerSelect = $("#ai-provider-select");
-        const apiKeyInput = $("#ai-api-key");
         const orModelDisplay = $("#active-model-display");
         if (providerSelect) providerSelect.value = initialProvider;
-        if (apiKeyInput) apiKeyInput.value = initialKeys[initialProvider] || "";
         if (orModelDisplay) orModelDisplay.textContent = initialModel || "None";
         
-        const customEndpointInput = $("#ai-custom-endpoint");
-        if (customEndpointInput) customEndpointInput.value = initialKeys.custom_endpoint || "";
-        toggleCustomEndpointView(initialProvider);
-        
-        const aiProviderDisplay = $("#ai-provider-display");
-        const aiProviderMenu = $("#ai-provider-menu");
-        if (aiProviderDisplay && initialProvider) {
-          const activeOption = aiProviderMenu?.querySelector(`.dropdown-item[data-value="${initialProvider}"]`);
-          if (activeOption) {
-            aiProviderMenu.querySelectorAll(".dropdown-item").forEach(el => el.classList.remove("active"));
-            activeOption.classList.add("active");
-            aiProviderDisplay.textContent = activeOption.textContent;
-          }
-        }
-        
+        renderCustomProviders();
+        populateProvidersDropdown();
         updateModelIndicator();
         saveAIConfigToSupabase();
         $("#ai-modal").classList.add("hidden");
@@ -2546,50 +2654,39 @@ function bindEvents() {
     };
   });
 
+  document.querySelectorAll('input[name="manager-api-type"]').forEach(radio => {
+    radio.addEventListener("change", updateRadioLabels);
+  });
+
   if ($("#ai-settings-button")) $("#ai-settings-button").onclick = () => {
-    initialProvider = localStorage.getItem("ghostwaiter:ai_provider") || "openrouter";
+    initialProvider = localStorage.getItem("ghostwaiter:ai_provider") || "custom";
     initialModel = localStorage.getItem("ghostwaiter:openrouter_model") || "";
     initialCustomActiveId = localStorage.getItem("ghostwaiter:custom_active_id") || "";
     initialKeys = {
-      openrouter: localStorage.getItem("ghostwaiter:key_openrouter") || localStorage.getItem("ghostwaiter:openrouter_key") || "",
-      google: localStorage.getItem("ghostwaiter:key_google") || "",
-      groq: localStorage.getItem("ghostwaiter:key_groq") || "",
-      deepseek: localStorage.getItem("ghostwaiter:key_deepseek") || "",
-      mistral: localStorage.getItem("ghostwaiter:key_mistral") || "",
-      kilo: localStorage.getItem("ghostwaiter:key_kilo") || "",
       custom: localStorage.getItem("ghostwaiter:key_custom") || "",
       custom_endpoint: localStorage.getItem("ghostwaiter:custom_endpoint") || "",
+      custom_api_type: localStorage.getItem("ghostwaiter:custom_api_type") || "openai",
       custom_providers: localStorage.getItem("ghostwaiter:custom_providers") || "[]",
     };
     
-    // Clear custom fields
+    // Clear edit mode if open
+    cancelEditingProvider();
+    
+    // Clear form fields
+    if ($("#ai-manager-name")) $("#ai-manager-name").value = "";
     if ($("#ai-custom-endpoint")) $("#ai-custom-endpoint").value = "";
     if ($("#ai-custom-key")) $("#ai-custom-key").value = "";
+    const radioOpenAI = $('input[name="manager-api-type"][value="openai"]');
+    if (radioOpenAI) radioOpenAI.checked = true;
+    updateRadioLabels();
 
-    // Reset tabs: go to custom if active provider is custom, otherwise provider-model
-    if (initialProvider === "custom") {
-      const customTab = document.querySelector('.ai-tab-btn[data-tab="custom"]');
-      if (customTab) customTab.click();
-    } else {
-      const providerModelTab = document.querySelector('.ai-tab-btn[data-tab="provider-model"]');
-      if (providerModelTab) providerModelTab.click();
-      
-      const providerSelect = $("#ai-provider-select");
-      if (providerSelect) {
-        providerSelect.value = initialProvider;
-        // Update display text for custom dropdown
-        const aiProviderDisplay = $("#ai-provider-display");
-        const aiProviderMenu = $("#ai-provider-menu");
-        if (aiProviderDisplay && aiProviderMenu) {
-          const activeOption = aiProviderMenu.querySelector(`.dropdown-item[data-value="${initialProvider}"]`);
-          if (activeOption) {
-            aiProviderMenu.querySelectorAll(".dropdown-item").forEach(el => el.classList.remove("active"));
-            activeOption.classList.add("active");
-            aiProviderDisplay.textContent = activeOption.textContent;
-          }
-        }
-      }
-      loadModelsForProvider(initialProvider);
+    // Tab bindings: default to provider-model
+    const providerModelTab = document.querySelector('.ai-tab-btn[data-tab="provider-model"]');
+    if (providerModelTab) providerModelTab.click();
+    
+    populateProvidersDropdown();
+    if (initialCustomActiveId) {
+      loadModelsForProvider(initialCustomActiveId);
     }
     
     renderCustomProviders();
@@ -2608,18 +2705,13 @@ function bindEvents() {
         updateModelIndicator();
       }
       await saveAIConfigToSupabase();
-      initialProvider = localStorage.getItem("ghostwaiter:ai_provider") || "openrouter";
+      initialProvider = localStorage.getItem("ghostwaiter:ai_provider") || "custom";
       initialModel = localStorage.getItem("ghostwaiter:openrouter_model") || "";
       initialCustomActiveId = localStorage.getItem("ghostwaiter:custom_active_id") || "";
       initialKeys = {
-        openrouter: localStorage.getItem("ghostwaiter:key_openrouter") || localStorage.getItem("ghostwaiter:openrouter_key") || "",
-        google: localStorage.getItem("ghostwaiter:key_google") || "",
-        groq: localStorage.getItem("ghostwaiter:key_groq") || "",
-        deepseek: localStorage.getItem("ghostwaiter:key_deepseek") || "",
-        mistral: localStorage.getItem("ghostwaiter:key_mistral") || "",
-        kilo: localStorage.getItem("ghostwaiter:key_kilo") || "",
         custom: localStorage.getItem("ghostwaiter:key_custom") || "",
         custom_endpoint: localStorage.getItem("ghostwaiter:custom_endpoint") || "",
+        custom_api_type: localStorage.getItem("ghostwaiter:custom_api_type") || "openai",
         custom_providers: localStorage.getItem("ghostwaiter:custom_providers") || "[]",
       };
       $("#ai-modal").classList.add("hidden");
