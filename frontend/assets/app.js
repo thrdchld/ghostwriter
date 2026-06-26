@@ -255,8 +255,6 @@ function renderCustomProviders() {
 
   if (!providers.length) {
     listEl.innerHTML = `<p style="font-size:13px;opacity:.6;padding:12px 0;text-align:center;">No custom providers saved.</p>`;
-    const section = $("#custom-models-section");
-    if (section) section.classList.add("hidden");
     return;
   }
 
@@ -285,20 +283,6 @@ function renderCustomProviders() {
       </div>
     </div>`;
   }).join("");
-
-  // Update models list for the active provider if selected
-  if (activeProvider && activeId) {
-    const p = providers.find(x => x.id === activeId);
-    if (p) {
-      renderCustomModels(p);
-    } else {
-      const section = $("#custom-models-section");
-      if (section) section.classList.add("hidden");
-    }
-  } else {
-    const section = $("#custom-models-section");
-    if (section) section.classList.add("hidden");
-  }
 }
 
 let editingProviderId = null;
@@ -393,58 +377,7 @@ window.selectCustomProvider = function(id) {
   updateModelIndicator();
 };
 
-window.renderCustomModels = function(p) {
-  const section = $("#custom-models-section");
-  const nameDisplay = $("#custom-provider-name-display");
-  const listEl = $("#custom-models-list");
-  const activeModelDisplay = $("#custom-active-model-display");
-  
-  if (!section || !listEl || !nameDisplay) return;
-  
-  nameDisplay.textContent = p.name;
-  section.classList.remove("hidden");
-  
-  const savedActiveModel = localStorage.getItem("ghostwaiter:openrouter_model") || "";
-  activeModelDisplay.textContent = savedActiveModel || "None";
-  
-  const query = ($("#custom-model-search")?.value || "").toLowerCase();
-  const models = p.models || [];
-  const filtered = models.filter(m => m.toLowerCase().includes(query));
-  
-  if (!filtered.length) {
-    listEl.innerHTML = `<p style="font-size:13px;opacity:.6;padding:8px 0;text-align:center;">No models available.</p>`;
-    return;
-  }
-  
-  listEl.innerHTML = filtered.map(modelId => {
-    const isSaved = modelId === savedActiveModel;
-    const isPending = pendingModel === modelId;
-    const cls = "model-result" + (isPending || isSaved ? " active" : "");
-    return `
-      <div class="${cls}" style="cursor: pointer; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); transition: background 0.2s;" onclick="selectCustomModel('${escapeHtml(modelId)}')">
-        <strong>${escapeHtml(modelId)}</strong>
-        ${isPending ? '<span style="font-size:11px;color:#f59e0b;font-weight:700;margin-top:4px;display:block;">● Pending save</span>' : (isSaved ? '<span style="font-size:11px;color:#22c55e;font-weight:700;margin-top:4px;display:block;">● Active</span>' : '')}
-      </div>
-    `;
-  }).join("");
-};
 
-window.selectCustomModel = function(modelId) {
-  pendingModel = modelId;
-  const orModelDisplay = $("#active-model-display");
-  if (orModelDisplay) orModelDisplay.textContent = modelId + " (unsaved)";
-  const customActiveModelDisplay = $("#custom-active-model-display");
-  if (customActiveModelDisplay) customActiveModelDisplay.textContent = modelId + " (unsaved)";
-  
-  // Re-render model lists to show the pending tag
-  const providers = getCustomProviders();
-  const activeId = localStorage.getItem("ghostwaiter:custom_active_id") || "";
-  const activeProvider = providers.find(x => x.id === activeId);
-  if (activeProvider) {
-    renderCustomModels(activeProvider);
-    renderModels();
-  }
-};
 
 window.deleteCustomProvider = async function(event, id) {
   if (event) event.stopPropagation();
@@ -2211,15 +2144,81 @@ function bindEvents() {
   window.loadModelsForProvider = async function(providerId) {
     if (!modelsList) return;
     
-    modelsList.innerHTML = `<div style="display:flex; justify-content:center; padding: 20px;"><div class="spinner" style="width:20px; height:20px; border-width:2px; border-color: var(--accent) transparent var(--accent) transparent; border-style: solid; border-radius: 50%; animation: spin 1s linear infinite;"></div></div>`;
+    modelsList.innerHTML = `
+      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 20px; gap:8px;">
+        <div class="spinner" style="width:20px; height:20px; border-width:2px; border-color: var(--accent) transparent var(--accent) transparent; border-style: solid; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        <span style="font-size: 12px; color: var(--text-secondary);">Verifying provider connection...</span>
+      </div>
+    `;
     
     const providers = getCustomProviders();
     const p = providers.find(x => x.id === providerId);
-    if (p) {
-      allModels = (p.models || []).map(m => ({ id: m, name: m }));
+    if (!p) {
+      modelsList.innerHTML = `<p style="font-size:13px;opacity:.6;padding:8px 0;text-align:center;">Provider not found.</p>`;
+      return;
+    }
+
+    try {
+      // 1. Verify connection first
+      const res = await jsonApi("/api/ai/test-connection", {
+        method: "POST",
+        headers: {
+          "X-AI-Provider": `custom|${p.type || "openai"}|${p.endpoint}`,
+          "X-OpenRouter-Key": p.key || ""
+        }
+      });
+      
+      if (!res.connected) {
+        throw new Error(res.message || "Connection failed");
+      }
+      
+      // 2. Fetch models dynamically
+      let models = [];
+      if (p.type === "anthropic") {
+        models = [
+          "claude-3-5-sonnet-latest",
+          "claude-3-5-haiku-latest",
+          "claude-3-opus-latest",
+          "claude-3-5-sonnet-20241022",
+          "claude-3-5-haiku-20241022",
+          "claude-3-opus-20240229"
+        ];
+      } else {
+        try {
+          const url = p.endpoint.endsWith("/") ? `${p.endpoint}models` : `${p.endpoint}/models`;
+          const headers = {};
+          if (p.key) headers["Authorization"] = `Bearer ${p.key}`;
+          const modelsRes = await fetch(url, { headers });
+          if (modelsRes.ok) {
+             const modelsData = await modelsRes.json();
+             models = (modelsData.data || []).map(m => m.id);
+          } else {
+             throw new Error(`HTTP ${modelsRes.status}`);
+          }
+        } catch (e) {
+          console.warn("Failed to fetch models directly, using fallback list", e);
+        }
+        
+        if (models.length === 0) {
+          models = [
+            "gpt-4o",
+            "gpt-4o-mini",
+            "o1-preview",
+            "o1-mini"
+          ];
+        }
+      }
+      
+      allModels = models.map(m => ({ id: m, name: m }));
       renderModels();
-    } else {
-      modelsList.innerHTML = `<p style="font-size:13px;opacity:.6;padding:8px 0;text-align:center;">No models available.</p>`;
+      
+    } catch (err) {
+      modelsList.innerHTML = `
+        <div style="padding:16px 8px; text-align:center;">
+          <p style="font-size:13px; color:var(--error); margin-bottom:8px;">Verification failed: ${escapeHtml(err.message)}</p>
+          <button class="button compact" type="button" onclick="loadModelsForProvider('${providerId}')">Retry</button>
+        </div>
+      `;
     }
   };
 
@@ -2287,33 +2286,19 @@ function bindEvents() {
 
   modelSearch?.addEventListener("input", renderModels);
 
-  // Custom tab model search input listener
-  const customModelSearch = $("#custom-model-search");
-  if (customModelSearch) {
-    customModelSearch.addEventListener("input", () => {
-      const activeId = localStorage.getItem("ghostwaiter:custom_active_id") || "";
-      const providers = getCustomProviders();
-      const p = providers.find(x => x.id === activeId);
-      if (p) {
-        renderCustomModels(p);
-      }
-    });
-  }
-
   // Load custom provider model button logic
   const customLoadBtn = $("#custom-load-btn");
   if (customLoadBtn) {
     customLoadBtn.onclick = async () => {
-      const name = ($("#ai-manager-name")?.value || "").trim();
       const endpoint = ($("#ai-custom-endpoint")?.value || "").trim();
       const key = ($("#ai-custom-key")?.value || "").trim();
       const type = ($("input[name='manager-api-type']:checked")?.value || "openai").trim();
       
-      if (!name) return toast("Enter Provider Name first", "error");
       if (!endpoint) return toast("Enter API Endpoint URL first", "error");
+      if (!key) return toast("Enter API Key first", "error");
       
       customLoadBtn.disabled = true;
-      customLoadBtn.textContent = "Loading...";
+      customLoadBtn.textContent = "Verifying...";
       try {
         // Verify connection via backend to bypass CORS and check credentials
         const res = await jsonApi("/api/ai/test-connection", {
@@ -2328,43 +2313,13 @@ function bindEvents() {
           throw new Error(res.message || "Connection failed");
         }
         
-        // Fetch models list (OpenAI) or use Claude list (Anthropic)
-        let models = [];
-        if (type === "anthropic") {
-          models = [
-            "claude-3-5-sonnet-latest",
-            "claude-3-5-haiku-latest",
-            "claude-3-opus-latest",
-            "claude-3-5-sonnet-20241022",
-            "claude-3-5-haiku-20241022",
-            "claude-3-opus-20240229",
-            "claude-3-sonnet-20240229",
-            "claude-3-haiku-20240307"
-          ];
-        } else {
-          try {
-            const url = endpoint.endsWith("/") ? `${endpoint}models` : `${endpoint}/models`;
-            const headers = {};
-            if (key) headers["Authorization"] = `Bearer ${key}`;
-            const modelsRes = await fetch(url, { headers });
-            if (modelsRes.ok) {
-               const modelsData = await modelsRes.json();
-               models = (modelsData.data || []).map(m => m.id);
-            }
-          } catch (e) {
-            console.warn("Failed to fetch models directly (CORS or network error), using fallback list", e);
-          }
-          if (models.length === 0) {
-            models = [
-              "gpt-4o",
-              "gpt-4o-mini",
-              "o1-preview",
-              "o1-mini",
-              "claude-3-5-sonnet",
-              "meta-llama/llama-3-8b-instruct",
-              "meta-llama/llama-3.3-70b-instruct"
-            ];
-          }
+        // Generate automatic provider name based on URL hostname
+        let generatedName = "Custom";
+        try {
+          const urlObj = new URL(endpoint);
+          generatedName = `${urlObj.hostname} (${type === "anthropic" ? "Anthropic" : "OpenAI"})`;
+        } catch (e) {
+          generatedName = `Custom (${type === "anthropic" ? "Anthropic" : "OpenAI"})`;
         }
         
         const providers = getCustomProviders();
@@ -2372,28 +2327,25 @@ function bindEvents() {
         if (editingProviderId) {
           const p = providers.find(x => x.id === editingProviderId);
           if (p) {
-            p.name = name;
+            p.name = generatedName;
             p.endpoint = endpoint;
             p.key = key;
             p.type = type;
-            p.models = models;
-            toast(`Successfully updated provider: ${name}`, "success");
+            toast(`Successfully updated provider: ${generatedName}`, "success");
           }
           cancelEditingProvider();
         } else {
           const id = `cp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
           providers.push({
             id,
-            name: name,
+            name: generatedName,
             endpoint: endpoint,
             key: key,
-            type: type,
-            models: models
+            type: type
           });
-          toast(`Successfully verified and added: ${name}`, "success");
+          toast(`Successfully verified and added: ${generatedName}`, "success");
           
           // Clear add form inputs
-          if ($("#ai-manager-name")) $("#ai-manager-name").value = "";
           if ($("#ai-custom-endpoint")) $("#ai-custom-endpoint").value = "";
           if ($("#ai-custom-key")) $("#ai-custom-key").value = "";
           
@@ -2421,7 +2373,7 @@ function bindEvents() {
         toast(`Verification failed: ${err.message}`, "error");
       } finally {
         customLoadBtn.disabled = false;
-        customLoadBtn.textContent = editingProviderId ? "Verify & Update" : "Load & Verify";
+        customLoadBtn.textContent = editingProviderId ? "Verify & Update" : "Verify & Add";
       }
     };
   }

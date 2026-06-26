@@ -589,24 +589,18 @@
           </div>
         </div>
 
-        <!-- ── Tab 2: Custom Providers (AI Manager) ── -->
         <div id="ai-tab-custom" class="ai-tab-content hidden">
           <!-- Custom AI Manager form -->
           <div style="display: flex; flex-direction: column; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-hover);">
             <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Add AI Provider</div>
             
             <div style="display: flex; flex-direction: column; gap: 6px;">
-              <label style="font-size: 0.7rem; font-weight: 600; color: var(--text-secondary);">Provider Name</label>
-              <input id="ai-manager-name" type="text" placeholder="e.g. My Llama 3" autocomplete="off" style="width: 100%;">
-            </div>
-
-            <div style="display: flex; flex-direction: column; gap: 6px;">
               <label style="font-size: 0.7rem; font-weight: 600; color: var(--text-secondary);">Endpoint URL</label>
               <input id="ai-custom-endpoint" type="text" placeholder="https://api.example.com/v1" autocomplete="off" style="width: 100%;">
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 6px;">
-              <label style="font-size: 0.7rem; font-weight: 600; color: var(--text-secondary);">API Key (Optional)</label>
+              <label style="font-size: 0.7rem; font-weight: 600; color: var(--text-secondary);">API Key</label>
               <input id="ai-custom-key" type="password" placeholder="API Key" autocomplete="off" style="width: 100%;">
             </div>
 
@@ -626,28 +620,17 @@
             </div>
 
             <div style="display: flex; justify-content: flex-end; margin-top: 4px;">
-              <button id="custom-load-btn" class="button primary compact" type="button" style="padding: 0 20px; height: 42px; width: 100%; justify-content: center;">Load & Verify</button>
+              <button id="custom-load-btn" class="button primary compact" type="button" style="padding: 0 20px; height: 42px; width: 100%; justify-content: center;">Verify &amp; Add</button>
             </div>
           </div>
 
           <!-- Saved custom providers list -->
-          <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 12px;">
             <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); padding-bottom: 6px;">Saved Custom Providers</div>
-            <div id="custom-providers-list" class="cpanel-list">
+            <div id="custom-providers-list" class="cpanel-list" style="max-height: 200px; overflow-y: auto;">
               <!-- Populated by JS -->
             </div>
           </div>
-
-          <!-- Models List for active custom provider -->
-          <div id="custom-models-section" class="hidden" style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
-            <div style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between; padding-bottom: 8px; border-bottom: 1px solid var(--border);">
-              <span>Select Custom Model (<span id="custom-provider-name-display" style="font-weight: 600;">None</span>):</span>
-              <strong id="custom-active-model-display" style="color: var(--accent); font-weight: 700;">None</strong>
-            </div>
-            <input type="text" id="custom-model-search" placeholder="Search custom models..." style="width: 100%;">
-            <div id="custom-models-list" style="display: grid; gap: 8px; max-height: 180px; overflow-y: auto; padding-right: 4px;">
-              <!-- Populated by JS -->
-            </div>
           </div>
         </div>
 
