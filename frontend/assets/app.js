@@ -3348,7 +3348,12 @@ function renderNoteCard(note) {
     : "";
     
   return `
-    <article class="note-card ${isSelected ? 'selected' : ''}" data-id="${note.id}" onclick="handleNoteCardClick(event, '${note.id}')">
+    <article class="note-card ${isSelected ? 'selected' : ''}" data-id="${note.id}" 
+      onclick="handleNoteCardClick(event, '${note.id}')"
+      ontouchstart="handleNoteTouchStart(event, '${note.id}')"
+      ontouchmove="handleNoteTouchMove(event, '${note.id}')"
+      ontouchend="handleNoteTouchEnd(event, '${note.id}')"
+      ontouchcancel="handleNoteTouchCancel(event, '${note.id}')">
       <input type="checkbox" class="note-card-select-checkbox" ${isSelected ? 'checked' : ''} onclick="handleNoteCheckboxChange(event, '${note.id}')">
       
       <button class="note-card-pin-btn ${note.pinned ? 'active' : ''}" onclick="event.stopPropagation(); toggleNotePin('${note.id}')" title="${note.pinned ? 'Unpin note' : 'Pin note'}">
@@ -3855,7 +3860,88 @@ window.toggleNotePin = async function(noteId) {
 };
 
 // Note Selection & Bulk Action handlers
+// Long press (hold to select) variables & handlers
+let touchTimer = null;
+let touchStartX = 0;
+let touchStartY = 0;
+let isLongPressTriggered = false;
+window.preventNextNoteClick = false;
+
+window.handleNoteTouchStart = function(event, noteId) {
+  if (event.target.closest('.note-card-actions') || 
+      event.target.closest('.note-card-select-checkbox') || 
+      event.target.closest('.note-card-pin-btn') ||
+      event.target.tagName === 'A') {
+    return;
+  }
+  
+  if (event.touches.length > 1) return;
+  
+  const touch = event.touches[0];
+  touchStartX = touch.clientX;
+  touchStartY = touch.clientY;
+  isLongPressTriggered = false;
+  
+  if (touchTimer) clearTimeout(touchTimer);
+  
+  touchTimer = setTimeout(() => {
+    isLongPressTriggered = true;
+    window.preventNextNoteClick = true;
+    
+    // Vibrate to give haptic feedback
+    if (navigator.vibrate) {
+      try {
+        navigator.vibrate(50);
+      } catch (e) {}
+    }
+    
+    toggleNoteSelection(noteId);
+    
+    // Reset the preventNextNoteClick flag after a short delay
+    setTimeout(() => {
+      window.preventNextNoteClick = false;
+    }, 300);
+  }, 500);
+};
+
+window.handleNoteTouchMove = function(event, noteId) {
+  if (!touchTimer) return;
+  
+  const touch = event.touches[0];
+  const diffX = Math.abs(touch.clientX - touchStartX);
+  const diffY = Math.abs(touch.clientY - touchStartY);
+  
+  if (diffX > 10 || diffY > 10) {
+    clearTimeout(touchTimer);
+    touchTimer = null;
+  }
+};
+
+window.handleNoteTouchEnd = function(event, noteId) {
+  if (touchTimer) {
+    clearTimeout(touchTimer);
+    touchTimer = null;
+  }
+  
+  if (isLongPressTriggered) {
+    event.preventDefault();
+    isLongPressTriggered = false;
+  }
+};
+
+window.handleNoteTouchCancel = function(event, noteId) {
+  if (touchTimer) {
+    clearTimeout(touchTimer);
+    touchTimer = null;
+  }
+  isLongPressTriggered = false;
+};
+
 window.handleNoteCardClick = function(event, noteId) {
+  if (window.preventNextNoteClick) {
+    window.preventNextNoteClick = false;
+    return;
+  }
   if (event.target.closest('.note-card-actions') || 
       event.target.closest('.note-card-select-checkbox') || 
       event.target.closest('.note-card-pin-btn') ||
@@ -3897,6 +3983,7 @@ function updateBulkActionsBar() {
   if (!bar || !info) return;
   
   const count = state.notesSelected.size;
+  document.body.classList.toggle("notes-selection-mode", count > 0);
   if (count > 0) {
     info.textContent = `${count} note${count > 1 ? 's' : ''} selected`;
     bar.classList.remove("hidden");

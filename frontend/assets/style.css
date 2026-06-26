@@ -2597,8 +2597,13 @@ details.accordion-clean summary::-webkit-details-marker {
   accent-color: var(--accent);
 }
 .note-card:hover .note-card-select-checkbox,
-.note-card.selected .note-card-select-checkbox {
+.note-card.selected .note-card-select-checkbox,
+body.notes-selection-mode .note-card .note-card-select-checkbox {
   opacity: 1;
+}
+body.notes-selection-mode .note-card .note-card-actions,
+body.notes-selection-mode .note-card .note-card-pin-btn {
+  display: none !important;
 }
 .note-card-pin-btn {
   position: absolute;
