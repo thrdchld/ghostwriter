@@ -60,28 +60,33 @@ async function loadTranslations() {
 
 window.showLanguageSheet = function() {
   const currentLang = state.language || "en";
-  const options = `
-    <button class="sheet-option language-option ${currentLang === 'en' ? 'active' : ''}" data-lang="en" type="button" style="flex:1; justify-content: space-between; display: flex; align-items: center; width: 100%;">
-      <span>English</span>
-      ${currentLang === 'en' ? '<b>✓</b>' : ''}
-    </button>
-    <button class="sheet-option language-option" data-lang="id" type="button" style="flex:1; justify-content: space-between; display: flex; align-items: center; width: 100%; color:var(--text-muted); opacity: 0.6;" disabled>
-      <span>Bahasa Indonesia (Coming Soon)</span>
-    </button>
-  `;
-  openSheet("Select Language", options);
+  const container = $("#language-options-container");
+  if (!container) return;
   
-  $$(".language-option").forEach(button => {
-    button.onclick = async () => {
-      const lang = button.dataset.lang;
-      if (lang === "id") return; // disabled
-      state.language = lang;
-      localStorage.setItem("ghostwaiter:language", lang);
-      closeSheet();
-      await loadTranslations();
-      toast("Language changed");
-    };
-  });
+  container.innerHTML = `
+    <div class="language-row" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; border: 1px solid ${currentLang === 'en' ? 'var(--accent)' : 'var(--border)'}; border-radius: var(--radius-md); background: ${currentLang === 'en' ? 'var(--accent-soft)' : 'transparent'}; cursor: ${currentLang === 'en' ? 'default' : 'pointer'};" ${currentLang !== 'en' ? 'onclick="changeLanguage(\'en\')"' : ''}>
+      <span style="font-weight: 600; color: var(--text-primary);">English</span>
+      ${currentLang === 'en' ? '<span style="color: var(--accent); font-weight: bold;">✓</span>' : ''}
+    </div>
+    <div class="language-row disabled" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-md); opacity: 0.5; cursor: not-allowed; background: var(--bg-hover);">
+      <span style="color: var(--text-muted);">Bahasa Indonesia (Coming Soon)</span>
+    </div>
+  `;
+  
+  $("#language-modal").classList.remove("hidden");
+};
+
+window.closeLanguageModal = function() {
+  $("#language-modal").classList.add("hidden");
+};
+
+window.changeLanguage = async function(lang) {
+  if (lang === "id") return; // disabled
+  state.language = lang;
+  localStorage.setItem("ghostwaiter:language", lang);
+  closeLanguageModal();
+  await loadTranslations();
+  toast("Language changed");
 };
 
 async function api(path, options = {}) {
@@ -219,12 +224,7 @@ function updateEmptyStateVisibility() {
 }
 
 function toggleCustomEndpointView(provider) {
-  const container = $("#custom-endpoint-container");
-  const panel = $("#custom-providers-panel");
-  const isCustom = provider === "custom";
-  if (container) container.classList.toggle("hidden", !isCustom);
-  if (panel) panel.classList.toggle("hidden", !isCustom);
-  if (isCustom) renderCustomProviders();
+  // Toggling endpoint view is handled statically in redesigned tab layout
 }
 
 // ── Custom Providers CRUD ────────────────────────────────────────────────
@@ -243,53 +243,121 @@ function renderCustomProviders() {
   if (!listEl) return;
   const providers = getCustomProviders();
   const activeId = localStorage.getItem("ghostwaiter:custom_active_id") || "";
+  const activeProvider = localStorage.getItem("ghostwaiter:ai_provider") === "custom";
 
   if (!providers.length) {
-    listEl.innerHTML = "";
+    listEl.innerHTML = `<p style="font-size:13px;opacity:.6;padding:12px 0;text-align:center;">No custom providers saved.</p>`;
+    const section = $("#custom-models-section");
+    if (section) section.classList.add("hidden");
     return;
   }
 
   listEl.innerHTML = providers.map(p => {
-    const isActive = p.id === activeId;
+    const isActive = activeProvider && p.id === activeId;
     const cls = isActive ? "cpanel-item active-provider" : "cpanel-item";
-    const loadLabel = isActive ? "Active" : "Load";
+    const dotStyle = isActive ? "background: #22c55e;" : "background: var(--text-muted);";
+    const borderStyle = isActive ? "border-color: #22c55e; background: color-mix(in srgb, #22c55e 8%, var(--bg-surface));" : "";
     return `
-    <div class="${cls}" data-cpid="${p.id}">
-      <span class="cpanel-item-dot"></span>
-      <div class="cpanel-item-info">
-        <div class="cpanel-item-name">${escapeHtml(p.name)}</div>
-        <div class="cpanel-item-url">${escapeHtml(p.endpoint)}</div>
+    <div class="${cls}" style="display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px; transition: border-color 0.15s, background 0.15s; cursor: pointer; ${borderStyle}" onclick="selectCustomProvider('${p.id}')">
+      <span class="cpanel-item-dot" style="width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; transition: background 0.2s; ${dotStyle}"></span>
+      <div class="cpanel-item-info" style="flex: 1; min-width: 0; text-align: left;">
+        <div class="cpanel-item-name" style="font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(p.name)}</div>
+        <div class="cpanel-item-url" style="font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px;">${escapeHtml(p.endpoint)}</div>
       </div>
-      <div class="cpanel-item-actions">
-        <button class="cpanel-load-btn" onclick="loadCustomProvider('${p.id}')" type="button">${loadLabel}</button>
-        <button class="cpanel-action-btn" title="Rename" onclick="renameCustomProvider('${p.id}')" type="button">
+      <div class="cpanel-item-actions" style="display: flex; gap: 4px; flex-shrink: 0;">
+        <button class="cpanel-action-btn" title="Rename" onclick="renameCustomProvider(event, '${p.id}')" type="button" style="background: transparent; border: none; color: var(--text-muted); padding: 5px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
-        <button class="cpanel-action-btn danger" title="Delete" onclick="deleteCustomProvider('${p.id}')" type="button">
+        <button class="cpanel-action-btn danger" title="Delete" onclick="deleteCustomProvider(event, '${p.id}')" type="button" style="background: transparent; border: none; color: var(--text-muted); padding: 5px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
         </button>
       </div>
     </div>`;
   }).join("");
+
+  // Update models list for the active provider if selected
+  if (activeProvider && activeId) {
+    const p = providers.find(x => x.id === activeId);
+    if (p) {
+      renderCustomModels(p);
+    } else {
+      const section = $("#custom-models-section");
+      if (section) section.classList.add("hidden");
+    }
+  } else {
+    const section = $("#custom-models-section");
+    if (section) section.classList.add("hidden");
+  }
 }
 
-window.loadCustomProvider = function(id) {
+window.selectCustomProvider = function(id) {
   const providers = getCustomProviders();
   const p = providers.find(x => x.id === id);
   if (!p) return;
+  
+  localStorage.setItem("ghostwaiter:ai_provider", "custom");
   localStorage.setItem("ghostwaiter:custom_active_id", id);
   localStorage.setItem("ghostwaiter:custom_endpoint", p.endpoint);
   localStorage.setItem("ghostwaiter:key_custom", p.key || "");
-  const endpointInput = $("#ai-custom-endpoint");
-  const apiKeyInput = $("#ai-api-key");
-  if (endpointInput) endpointInput.value = p.endpoint;
-  if (apiKeyInput) apiKeyInput.value = p.key || "";
+  
   renderCustomProviders();
   updateModelIndicator();
-  toast(`Loaded: ${p.name}`, "success");
 };
 
-window.renameCustomProvider = async function(id) {
+window.renderCustomModels = function(p) {
+  const section = $("#custom-models-section");
+  const nameDisplay = $("#custom-provider-name-display");
+  const listEl = $("#custom-models-list");
+  const activeModelDisplay = $("#custom-active-model-display");
+  
+  if (!section || !listEl || !nameDisplay) return;
+  
+  nameDisplay.textContent = p.name;
+  section.classList.remove("hidden");
+  
+  const savedActiveModel = localStorage.getItem("ghostwaiter:openrouter_model") || "";
+  activeModelDisplay.textContent = savedActiveModel || "None";
+  
+  const query = ($("#custom-model-search")?.value || "").toLowerCase();
+  const models = p.models || [];
+  const filtered = models.filter(m => m.toLowerCase().includes(query));
+  
+  if (!filtered.length) {
+    listEl.innerHTML = `<p style="font-size:13px;opacity:.6;padding:8px 0;text-align:center;">No models available.</p>`;
+    return;
+  }
+  
+  listEl.innerHTML = filtered.map(modelId => {
+    const isSaved = modelId === savedActiveModel;
+    const isPending = pendingModel === modelId;
+    const cls = "model-result" + (isPending || isSaved ? " active" : "");
+    return `
+      <div class="${cls}" style="cursor: pointer; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); transition: background 0.2s;" onclick="selectCustomModel('${escapeHtml(modelId)}')">
+        <strong>${escapeHtml(modelId)}</strong>
+        ${isPending ? '<span style="font-size:11px;color:#f59e0b;font-weight:700;margin-top:4px;display:block;">● Pending save</span>' : (isSaved ? '<span style="font-size:11px;color:#22c55e;font-weight:700;margin-top:4px;display:block;">● Active</span>' : '')}
+      </div>
+    `;
+  }).join("");
+};
+
+window.selectCustomModel = function(modelId) {
+  pendingModel = modelId;
+  const orModelDisplay = $("#active-model-display");
+  if (orModelDisplay) orModelDisplay.textContent = modelId + " (unsaved)";
+  const customActiveModelDisplay = $("#custom-active-model-display");
+  if (customActiveModelDisplay) customActiveModelDisplay.textContent = modelId + " (unsaved)";
+  
+  // Re-render model lists to show the pending tag
+  const providers = getCustomProviders();
+  const activeId = localStorage.getItem("ghostwaiter:custom_active_id") || "";
+  const activeProvider = providers.find(x => x.id === activeId);
+  if (activeProvider) {
+    renderCustomModels(activeProvider);
+  }
+};
+
+window.renameCustomProvider = async function(event, id) {
+  if (event) event.stopPropagation();
   const providers = getCustomProviders();
   const p = providers.find(x => x.id === id);
   if (!p) return;
@@ -301,31 +369,25 @@ window.renameCustomProvider = async function(id) {
   saveAIConfigToSupabase();
 };
 
-window.deleteCustomProvider = async function(id) {
+window.deleteCustomProvider = async function(event, id) {
+  if (event) event.stopPropagation();
   if (!(await showConfirm("Delete this custom provider? This cannot be undone."))) return;
   let providers = getCustomProviders();
   providers = providers.filter(x => x.id !== id);
   saveCustomProviders(providers);
+  
   // Clear active if it was this one
   if (localStorage.getItem("ghostwaiter:custom_active_id") === id) {
     localStorage.removeItem("ghostwaiter:custom_active_id");
+    if (localStorage.getItem("ghostwaiter:ai_provider") === "custom") {
+      localStorage.setItem("ghostwaiter:ai_provider", "openrouter");
+    }
   }
+  
   renderCustomProviders();
   saveAIConfigToSupabase();
   toast("Provider deleted");
 };
-
-function addCustomProvider(name, endpoint, key) {
-  if (!name.trim() || !endpoint.trim()) return false;
-  const providers = getCustomProviders();
-  const id = `cp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-  providers.push({ id, name: name.trim(), endpoint: endpoint.trim(), key: key || "" });
-  saveCustomProviders(providers);
-  localStorage.setItem("ghostwaiter:custom_active_id", id);
-  localStorage.setItem("ghostwaiter:custom_endpoint", endpoint.trim());
-  localStorage.setItem("ghostwaiter:key_custom", key || "");
-  return id;
-}
 
 async function syncAIConfigFromSupabase() {
   try {
@@ -720,23 +782,43 @@ async function loadWorkspaces() {
   $("#workspace-name").textContent = current.name;
 }
 
-function showWorkspaceSheet() {
-  const items = state.workspaces.map(item => `
-    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border);">
-      <button class="sheet-option workspace-option" data-id="${escapeHtml(item.id)}" type="button" style="flex:1; border-bottom:none;">
-        <span><strong>${escapeHtml(item.name)}</strong></span>
-        <b>${item.id === state.workspace ? "✓" : ""}</b>
-      </button>
-      <div style="padding-right: 16px; display:flex; gap:8px;">
-         <button class="text-button accent" onclick="editWorkspace('${escapeHtml(item.id)}', '${escapeHtml(item.name).replace(/'/g, "\\'")}')" style="font-size:12px; padding:4px 8px;">Edit</button>
-         ${item.id === 'personal' ? '' : `<button class="text-button danger" onclick="deleteWorkspace('${escapeHtml(item.id)}')" style="font-size:12px; padding:4px 8px; color:var(--error);">Delete</button>`}
+window.showWorkspaceModal = function() {
+  const container = $("#workspace-options-container");
+  if (!container) return;
+  
+  const items = state.workspaces.map(item => {
+    const isActive = item.id === state.workspace;
+    const bg = isActive ? 'var(--accent-soft)' : 'transparent';
+    const border = isActive ? '3px solid var(--accent)' : '1px solid var(--border)';
+    const checkmark = isActive ? '<span style="color: var(--accent); font-weight: bold; margin-left: 6px;">✓</span>' : '';
+    const nameStyle = isActive ? 'font-size: 14px; font-weight: 700; color: var(--text-primary);' : 'font-size: 14px; font-weight: 600; color: var(--text-secondary);';
+    
+    return `
+      <div class="workspace-row" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border: 1px solid var(--border); border-left: ${border}; border-radius: var(--radius-md); transition: background 0.2s; background: ${bg};">
+        <div class="workspace-select-area" onclick="switchWorkspaceAndClose('${escapeHtml(item.id)}')" style="flex: 1; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+          <span style="${nameStyle}">${escapeHtml(item.name)}</span>
+          ${checkmark}
+        </div>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <button class="button compact secondary" onclick="editWorkspace('${escapeHtml(item.id)}', '${escapeHtml(item.name).replace(/'/g, "\\'")}')" style="padding: 4px 8px; font-size: 11px;" type="button">Edit</button>
+          ${item.id === 'personal' ? '' : `<button class="button compact danger" onclick="deleteWorkspace('${escapeHtml(item.id)}')" style="padding: 4px 8px; font-size: 11px; color: var(--error); background: transparent; border: 1px solid var(--error);" type="button">Delete</button>`}
+        </div>
       </div>
-    </div>`).join("");
-  openSheet("Pilih workspace", `${items}
-    <button id="create-workspace" class="button primary" style="width:100%;margin-top:16px" type="button">New Workspace</button>`);
-  $$(".workspace-option").forEach(button => button.onclick = () => switchWorkspace(button.dataset.id));
-  $("#create-workspace").onclick = () => createWorkspace();
-}
+    `;
+  }).join('');
+  
+  container.innerHTML = items;
+  $("#workspace-modal").classList.remove("hidden");
+};
+
+window.closeWorkspaceModal = function() {
+  $("#workspace-modal").classList.add("hidden");
+};
+
+window.switchWorkspaceAndClose = async function(id) {
+  await switchWorkspace(id);
+  closeWorkspaceModal();
+};
 
 async function switchWorkspace(id) {
   await jsonApi("/api/workspace/switch", {method: "POST", body: {workspace_id: id}});
@@ -2016,30 +2098,78 @@ function bindEvents() {
   };
 
   const providerSelect   = $("#ai-provider-select");
-  const apiKeyInput      = $("#ai-api-key");
   const orModelDisplay   = $("#active-model-display");
-  const loadModelsBtn    = $("#load-models-btn");
-  const modelsBrowser    = $("#models-browser");
   const modelsList       = $("#models-list");
   const modelSearch      = $("#model-search");
 
   let allModels = [];
   let pendingModel = null; // selected but not yet saved
 
+  function getDefaultModels(provider) {
+    const defaults = {
+      openrouter: [
+        { id: "google/gemini-2.5-pro", name: "Gemini 2.5 Pro" },
+        { id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash" },
+        { id: "meta-llama/llama-3.3-70b-instruct", name: "Llama 3.3 70B Instruct" },
+        { id: "deepseek/deepseek-chat", name: "DeepSeek Chat (V3)" },
+        { id: "openai/gpt-4o-mini", name: "GPT-4o Mini" }
+      ],
+      google: [
+        { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
+        { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
+        { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash" },
+        { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro" }
+      ],
+      groq: [
+        { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B Versatile" },
+        { id: "llama3-8b-8192", name: "Llama 3 8B" },
+        { id: "mixtral-8x7b-32768", name: "Mixtral 8x7B" },
+        { id: "gemma2-9b-it", name: "Gemma 2 9B" }
+      ],
+      deepseek: [
+        { id: "deepseek-chat", name: "DeepSeek Chat" },
+        { id: "deepseek-coder", name: "DeepSeek Coder" }
+      ],
+      mistral: [
+        { id: "mistral-large-latest", name: "Mistral Large" },
+        { id: "open-mixtral-8x22b", name: "Mixtral 8x22B" },
+        { id: "mistral-small-latest", name: "Mistral Small" }
+      ],
+      kilo: [
+        { id: "kilo-1", name: "Kilo 1" },
+        { id: "kilo-search", name: "Kilo Search" },
+        { id: "kilo-reasoning", name: "Kilo Reasoning" }
+      ]
+    };
+    return defaults[provider] || [];
+  }
+
+  window.loadModelsForProvider = async function(provider) {
+    if (!modelsList) return;
+    
+    // Show spinner
+    modelsList.innerHTML = `<div style="display:flex; justify-content:center; padding: 20px;"><div class="spinner" style="width:20px; height:20px; border-width:2px; border-color: var(--accent) transparent var(--accent) transparent; border-style: solid; border-radius: 50%; animation: spin 1s linear infinite;"></div></div>`;
+    
+    const key = localStorage.getItem(`ghostwaiter:key_${provider}`) || (provider === "openrouter" ? localStorage.getItem("ghostwaiter:openrouter_key") : "") || "";
+    
+    try {
+      const fetcher = PROVIDER_MODEL_URLS[provider];
+      if (!fetcher) throw new Error("Provider not supported");
+      allModels = await fetcher(key);
+      renderModels();
+    } catch (err) {
+      console.warn(`Failed to fetch models for ${provider}, using defaults:`, err);
+      allModels = getDefaultModels(provider);
+      renderModels();
+    }
+  };
+
   // Restore saved state
   const savedProvider = localStorage.getItem("ghostwaiter:ai_provider") || "openrouter";
-  const savedKey      = localStorage.getItem(`ghostwaiter:key_${savedProvider}`) || "";
   const savedModel    = localStorage.getItem("ghostwaiter:openrouter_model") || "";
   if (providerSelect) providerSelect.value = savedProvider;
-  if (apiKeyInput)    apiKeyInput.value    = savedKey;
   if (orModelDisplay) orModelDisplay.textContent = savedModel || "None";
   
-  const customEndpointInput = $("#ai-custom-endpoint");
-  if (customEndpointInput) {
-    customEndpointInput.value = localStorage.getItem("ghostwaiter:custom_endpoint") || "";
-  }
-  toggleCustomEndpointView(savedProvider);
-
   // Update custom select dropdown display
   const aiProviderDisplay = $("#ai-provider-display");
   const aiProviderMenu = $("#ai-provider-menu");
@@ -2085,24 +2215,8 @@ function bindEvents() {
   providerSelect?.addEventListener("change", () => {
     const p = providerSelect.value;
     localStorage.setItem("ghostwaiter:ai_provider", p);
-    apiKeyInput.value = localStorage.getItem(`ghostwaiter:key_${p}`) || "";
-    toggleCustomEndpointView(p);
-    modelsBrowser?.classList.add("hidden");
-    const placeholder = $("#models-browser-placeholder");
-    if (placeholder) placeholder.classList.remove("hidden");
-    allModels = [];
-    updateModelIndicator();
-  });
-
-  apiKeyInput?.addEventListener("input", () => {
-    const p = providerSelect.value;
-    localStorage.setItem(`ghostwaiter:key_${p}`, apiKeyInput.value.trim());
-    if (p === "openrouter") localStorage.setItem("ghostwaiter:openrouter_key", apiKeyInput.value.trim());
-    updateModelIndicator();
-  });
-
-  $("#ai-custom-endpoint")?.addEventListener("input", () => {
-    localStorage.setItem("ghostwaiter:custom_endpoint", $("#ai-custom-endpoint").value.trim());
+    localStorage.removeItem("ghostwaiter:custom_active_id");
+    loadModelsForProvider(p);
     updateModelIndicator();
   });
 
@@ -2114,7 +2228,7 @@ function bindEvents() {
       m.id.toLowerCase().includes(query) || m.name.toLowerCase().includes(query)
     );
     if (!filtered.length) {
-      modelsList.innerHTML = `<p style="font-size:13px;opacity:.6;padding:8px 0;">No models match.</p>`;
+      modelsList.innerHTML = `<p style="font-size:13px;opacity:.6;padding:8px 0;text-align:center;">No models match.</p>`;
       return;
     }
     const savedActiveModel = localStorage.getItem("ghostwaiter:openrouter_model") || "";
@@ -2136,56 +2250,77 @@ function bindEvents() {
 
   modelSearch?.addEventListener("input", renderModels);
 
-  loadModelsBtn.onclick = async () => {
-    const provider = providerSelect.value;
-    const key = apiKeyInput.value.trim();
-    if (provider !== "custom" && !key) return toast("Enter your API Key first", "error");
+  // Custom tab model search input listener
+  const customModelSearch = $("#custom-model-search");
+  if (customModelSearch) {
+    customModelSearch.addEventListener("input", () => {
+      const activeId = localStorage.getItem("ghostwaiter:custom_active_id") || "";
+      const providers = getCustomProviders();
+      const p = providers.find(x => x.id === activeId);
+      if (p) {
+        renderCustomModels(p);
+      }
+    });
+  }
 
-    loadModelsBtn.disabled = true;
-    loadModelsBtn.textContent = "Loading...";
-    try {
-      const fetcher = PROVIDER_MODEL_URLS[provider];
-      if (!fetcher) throw new Error("Provider not supported");
-      allModels = await fetcher(key);
+  // Load custom provider model button logic
+  const customLoadBtn = $("#custom-load-btn");
+  if (customLoadBtn) {
+    customLoadBtn.onclick = async () => {
+      const endpoint = ($("#ai-custom-endpoint")?.value || "").trim();
+      const key = ($("#ai-custom-key")?.value || "").trim();
+      if (!endpoint) return toast("Enter API Endpoint URL first", "error");
       
-      const placeholder = $("#models-browser-placeholder");
-      if (placeholder) placeholder.classList.add("hidden");
-      modelsBrowser?.classList.remove("hidden");
-      
-      renderModels();
-      toast(`Successfully loaded ${allModels.length} models`, "success");
-      
-      const modelsTab = document.querySelector('.ai-tab-btn[data-tab="models"]');
-      if (modelsTab) modelsTab.click();
-    } catch (err) {
-      toast(`Failed to load models: ${err.message}`, "error");
-    } finally {
-      loadModelsBtn.disabled = false;
-      loadModelsBtn.textContent = "Load";
-    }
-  };
-
-  // ── Custom Provider Save button ─────────────────────────────────────────
-  const cpanelSaveBtn = $("#cpanel-save-btn");
-  if (cpanelSaveBtn) {
-    cpanelSaveBtn.onclick = () => {
-      const nameVal = ($("#cpanel-name-input")?.value || "").trim();
-      const endpointVal = ($("#ai-custom-endpoint")?.value || "").trim();
-      const keyVal = ($("#ai-api-key")?.value || "").trim();
-      if (!nameVal) return toast("Enter a name for this provider", "error");
-      if (!endpointVal) return toast("Enter an endpoint URL first", "error");
-      const id = addCustomProvider(nameVal, endpointVal, keyVal);
-      if (id) {
-        if ($("#cpanel-name-input")) $("#cpanel-name-input").value = "";
+      customLoadBtn.disabled = true;
+      customLoadBtn.textContent = "Loading...";
+      try {
+        const url = endpoint.endsWith("/") ? `${endpoint}models` : `${endpoint}/models`;
+        const headers = {};
+        if (key) headers["Authorization"] = `Bearer ${key}`;
+        
+        const res = await fetch(url, { headers });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const models = (data.data || []).map(m => m.id);
+        
+        const name = await showPrompt("Connection successful! Enter a name for this custom provider:", "My Custom Provider");
+        if (!name || !name.trim()) {
+          toast("Provider not saved: name is required", "error");
+          return;
+        }
+        
+        const providers = getCustomProviders();
+        const id = `cp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        providers.push({
+          id,
+          name: name.trim(),
+          endpoint: endpoint,
+          key: key,
+          models: models
+        });
+        saveCustomProviders(providers);
+        
+        if ($("#ai-custom-endpoint")) $("#ai-custom-endpoint").value = "";
+        if ($("#ai-custom-key")) $("#ai-custom-key").value = "";
+        
         renderCustomProviders();
-        updateModelIndicator();
+        selectCustomProvider(id);
         saveAIConfigToSupabase();
-        toast(`Saved: ${nameVal}`, "success");
+        
+        toast(`Successfully verified and added: ${name}`, "success");
+      } catch (err) {
+        toast(`Verification failed: ${err.message}`, "error");
+      } finally {
+        customLoadBtn.disabled = false;
+        customLoadBtn.textContent = "Load";
       }
     };
   }
 
-  $("#workspace-button").onclick = showWorkspaceSheet;
+  $("#workspace-button").onclick = window.showWorkspaceModal;
+  if ($("#workspace-cancel")) $("#workspace-cancel").onclick = window.closeWorkspaceModal;
+  if ($("#modal-create-workspace-btn")) $("#modal-create-workspace-btn").onclick = () => createWorkspace();
+  if ($("#language-cancel")) $("#language-cancel").onclick = window.closeLanguageModal;
   $("#sheet-close").onclick = closeSheet;
   $("#backdrop").onclick = closeSheet;
   $("#chat-form").onsubmit = sendChat;
@@ -2424,18 +2559,40 @@ function bindEvents() {
       kilo: localStorage.getItem("ghostwaiter:key_kilo") || "",
       custom: localStorage.getItem("ghostwaiter:key_custom") || "",
       custom_endpoint: localStorage.getItem("ghostwaiter:custom_endpoint") || "",
+      custom_providers: localStorage.getItem("ghostwaiter:custom_providers") || "[]",
     };
     
-    const customEndpointInput = $("#ai-custom-endpoint");
-    if (customEndpointInput) {
-      customEndpointInput.value = initialKeys.custom_endpoint || "";
+    // Clear custom fields
+    if ($("#ai-custom-endpoint")) $("#ai-custom-endpoint").value = "";
+    if ($("#ai-custom-key")) $("#ai-custom-key").value = "";
+
+    // Reset tabs: go to custom if active provider is custom, otherwise provider-model
+    if (initialProvider === "custom") {
+      const customTab = document.querySelector('.ai-tab-btn[data-tab="custom"]');
+      if (customTab) customTab.click();
+    } else {
+      const providerModelTab = document.querySelector('.ai-tab-btn[data-tab="provider-model"]');
+      if (providerModelTab) providerModelTab.click();
+      
+      const providerSelect = $("#ai-provider-select");
+      if (providerSelect) {
+        providerSelect.value = initialProvider;
+        // Update display text for custom dropdown
+        const aiProviderDisplay = $("#ai-provider-display");
+        const aiProviderMenu = $("#ai-provider-menu");
+        if (aiProviderDisplay && aiProviderMenu) {
+          const activeOption = aiProviderMenu.querySelector(`.dropdown-item[data-value="${initialProvider}"]`);
+          if (activeOption) {
+            aiProviderMenu.querySelectorAll(".dropdown-item").forEach(el => el.classList.remove("active"));
+            activeOption.classList.add("active");
+            aiProviderDisplay.textContent = activeOption.textContent;
+          }
+        }
+      }
+      loadModelsForProvider(initialProvider);
     }
-    toggleCustomEndpointView(initialProvider);
-
-    // Reset tabs to connection
-    const connectionTab = document.querySelector('.ai-tab-btn[data-tab="connection"]');
-    if (connectionTab) connectionTab.click();
-
+    
+    renderCustomProviders();
     $("#ai-modal").classList.remove("hidden");
   };
 
@@ -2449,7 +2606,6 @@ function bindEvents() {
         if (orModelDisplay) orModelDisplay.textContent = pendingModel;
         pendingModel = null;
         updateModelIndicator();
-        renderModels();
       }
       await saveAIConfigToSupabase();
       initialProvider = localStorage.getItem("ghostwaiter:ai_provider") || "openrouter";
@@ -2464,6 +2620,7 @@ function bindEvents() {
         kilo: localStorage.getItem("ghostwaiter:key_kilo") || "",
         custom: localStorage.getItem("ghostwaiter:key_custom") || "",
         custom_endpoint: localStorage.getItem("ghostwaiter:custom_endpoint") || "",
+        custom_providers: localStorage.getItem("ghostwaiter:custom_providers") || "[]",
       };
       $("#ai-modal").classList.add("hidden");
       toast("AI settings saved", "success");
@@ -2513,6 +2670,16 @@ function bindEvents() {
         e.stopPropagation();
         e.preventDefault();
         await closeAIModalWithCheck();
+      } else if (!$("#language-modal").classList.contains("hidden")) {
+        modalActive = true;
+        e.stopPropagation();
+        e.preventDefault();
+        closeLanguageModal();
+      } else if (!$("#workspace-modal").classList.contains("hidden")) {
+        modalActive = true;
+        e.stopPropagation();
+        e.preventDefault();
+        closeWorkspaceModal();
       } else if (!$("#sheet").classList.contains("hidden")) {
         modalActive = true;
         e.stopPropagation();
@@ -2669,11 +2836,13 @@ initialize().catch(error => {
   else toast(error.message);
 });
 
-// Advanced UI Functions
 window.editWorkspace = async function(id, oldName) {
-  closeSheet();
+  closeWorkspaceModal();
   const newName = await showPrompt("Nama baru untuk workspace:", oldName);
-  if (!newName || newName === oldName) return;
+  if (!newName || newName === oldName) {
+    showWorkspaceModal();
+    return;
+  }
   try {
     const result = await jsonApi("/api/workspace/rename", {
       method: "POST",
@@ -2685,16 +2854,20 @@ window.editWorkspace = async function(id, oldName) {
         $("#workspace-name").textContent = newName;
       }
       toast("Workspace renamed");
-      showWorkspaceSheet();
+      showWorkspaceModal();
     }
   } catch (err) {
     toast(err.message, "error");
+    showWorkspaceModal();
   }
 };
 
 window.deleteWorkspace = async function(id) {
-  closeSheet();
-  if (!(await showConfirm("Hapus workspace ini beserta seluruh isinya secara permanen?"))) return;
+  closeWorkspaceModal();
+  if (!(await showConfirm("Hapus workspace ini beserta seluruh isinya secara permanen?"))) {
+    showWorkspaceModal();
+    return;
+  }
   try {
     const result = await jsonApi("/api/workspace/delete", {
       method: "POST",
@@ -2706,9 +2879,11 @@ window.deleteWorkspace = async function(id) {
         await switchWorkspace("personal");
       }
       toast("Workspace deleted");
+      showWorkspaceModal();
     }
   } catch (err) {
     toast(err.message, "error");
+    showWorkspaceModal();
   }
 };
 
